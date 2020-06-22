@@ -5,7 +5,7 @@ import pl.simpay.api.model.generic.Operator;
 
 @Data
 public class DbGenerateRequest {
-    private int serviceId = -1;
+    private String service_id;
     private String control;
     private String complete;
     private String failure;

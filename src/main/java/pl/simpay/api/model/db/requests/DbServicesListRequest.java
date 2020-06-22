@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class DbServicesListRequest {
-    private String api;
+    private String key;
     private String secret;
 }

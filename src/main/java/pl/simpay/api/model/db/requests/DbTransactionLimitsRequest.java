@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public class DbTransactionLimitsRequest {
-    private String api;
+    private String key;
     private String secret;
     private String service_id;
 }

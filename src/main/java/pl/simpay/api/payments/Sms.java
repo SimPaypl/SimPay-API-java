@@ -18,14 +18,14 @@ public class Sms {
     private static final String VERIFY_CODE_URL = "https://simpay.pl/api/status";
     private static final String SERVICE_LIST_URL = "https://simpay.pl/api/get_services";
 
-    private static final TypeToken<APIResponse<CodeVerifyResponse>> SERVICE_LIST_RESPONSE = new TypeToken<APIResponse<CodeVerifyResponse>>() {};
-    private static final TypeToken<APIResponse<ServicesResponse>> VERIFY_CODE_RESPONSE = new TypeToken<APIResponse<ServicesResponse>>() {};
+    private static final TypeToken<APIResponse<ServicesResponse>> SERVICE_LIST_RESPONSE = new TypeToken<APIResponse<ServicesResponse>>() {};
+    private static final TypeToken<APIResponse<CodeVerifyResponse>> VERIFY_CODE_RESPONSE = new TypeToken<APIResponse<CodeVerifyResponse>>() {};
 
     private String apiKey;
     private String secret;
-    private int serviceId;
+    private String serviceId;
 
-    public Sms(String apiKey, String secret, int serviceId) {
+    public Sms(String apiKey, String secret, String serviceId) {
         this.apiKey = apiKey;
         this.secret = secret;
         this.serviceId = serviceId;
@@ -40,6 +40,7 @@ public class Sms {
     @SneakyThrows public APIResponse<CodeVerifyResponse> verifyCode(@NonNull CodeVerifyRequest request) {
         if (request.getKey() == null) request.setKey(apiKey);
         if (request.getSecret() == null) request.setSecret(secret);
+        if (request.getService_id() == null) request.setService_id(serviceId);
 
         return service.sendPost(VERIFY_CODE_URL, new ParametrizedRequest<>(request), VERIFY_CODE_RESPONSE.getType());
     }

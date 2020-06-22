@@ -3,6 +3,7 @@ package pl.simpay.api.payments;
 import com.google.gson.reflect.TypeToken;
 import lombok.Data;
 import lombok.NonNull;
+import okhttp3.FormBody;
 import pl.simpay.api.model.db.*;
 import pl.simpay.api.model.db.requests.*;
 import pl.simpay.api.model.db.responses.DbGenerateResponse;
@@ -13,6 +14,7 @@ import pl.simpay.api.model.generic.IPResponse;
 import pl.simpay.api.utils.Hashing;
 import pl.simpay.api.utils.HttpService;
 
+import java.text.DecimalFormat;
 import java.util.List;
 
 @Data
@@ -34,16 +36,16 @@ public class DirectBilling {
     private String apiKey;
     private String secret;
     private boolean debugMode;
-    private int serviceId;
+    private String serviceId;
 
-    public DirectBilling(String apiKey, String secret, boolean debugMode, int serviceId) {
+    public DirectBilling(String apiKey, String secret, boolean debugMode, String serviceId) {
         this.apiKey = apiKey;
         this.secret = secret;
         this.debugMode = debugMode;
         this.serviceId = serviceId;
     }
 
-    public DirectBilling(String apiKey, boolean debugMode, int serviceId) {
+    public DirectBilling(String apiKey, boolean debugMode, String serviceId) {
         this.apiKey = apiKey;
         this.debugMode = debugMode;
         this.serviceId = serviceId;
@@ -60,7 +62,7 @@ public class DirectBilling {
 
     // https://docs.simpay.pl/#generowanie-transakcji
     public DbGenerateResponse generateTransaction(@NonNull DbGenerateRequest request) {
-        if (request.getServiceId() == -1) request.setServiceId(serviceId);
+        if (request.getService_id() == null) request.setService_id(serviceId);
 
         String amount = "";
 
@@ -68,9 +70,21 @@ public class DirectBilling {
         if (request.getAmount_gross() != null) amount = request.getAmount_gross();
         if (request.getAmount_required() != null) amount = request.getAmount_required();
 
-        request.setSign(Hashing.sha256hex(this.serviceId + "" + amount + "" + request.getControl() + "" + this.apiKey));
+        DecimalFormat decimalFormat = new DecimalFormat("0.##");
 
-        return service.sendPost(API_URL, request, DbGenerateResponse.class);
+        FormBody.Builder builder = new FormBody.Builder();
+
+        builder.add("serviceId", request.getService_id());
+        builder.add("amount", request.getAmount());
+        builder.add("control", request.getControl());
+
+        System.out.println(decimalFormat.format(Double.valueOf(amount)));
+
+        request.setSign(Hashing.sha256hex(this.serviceId + "" + decimalFormat.format(Double.valueOf(amount)).replace(',', '.') + "" + request.getControl() + "" + this.apiKey));
+
+        builder.add("sign", request.getSign());
+
+        return service.sendPost(API_URL, builder.build(), DbGenerateResponse.class);
     }
 
     // https://docs.simpay.pl/#pobieranie-danych-o-transakcji
@@ -83,7 +97,7 @@ public class DirectBilling {
 
     // https://docs.simpay.pl/#pobieranie-listy-uslug-dcb
     public APIResponse<DbServicesListResponse> getServices(@NonNull DbServicesListRequest request) {
-        if (request.getApi() == null) request.setApi(apiKey);
+        if (request.getKey() == null) request.setKey(apiKey);
         if (request.getSecret() == null) request.setSecret(secret);
 
         return service.sendPost(SERVICES_LIST_URL, new ParametrizedRequest<>(request), DB_SERVICES_LIST_RESPONSE.getType());
@@ -91,24 +105,26 @@ public class DirectBilling {
 
     // https://docs.simpay.pl/#pobieranie-maksymalnych-kwot-transakcji
     public APIResponse<List<DbTransactionLimit>> getTransactionLimits(@NonNull DbTransactionLimitsRequest request) {
-        if (request.getApi() == null) request.setApi(apiKey);
+        if (request.getKey() == null) request.setKey(apiKey);
         if (request.getSecret() == null) request.setSecret(secret);
+        if (request.getService_id() == null) request.setService_id(serviceId);
 
         return service.sendPost(TRANSACTION_LIMITS_URL, new ParametrizedRequest<>(request), DB_TRANSACTION_LIMITS_RESPONSE.getType());
     }
 
     // https://docs.simpay.pl/#pobieranie-prowizji-dla-uslugi
     public APIResponse<List<DbCommission>> getServiceCommission(@NonNull DbServiceCommissionRequest request) {
-        if (request.getApi() == null) request.setApi(apiKey);
+        if (request.getKey() == null) request.setKey(apiKey);
         if (request.getSecret() == null) request.setSecret(secret);
+        if (request.getService_id() == null) request.setService_id(serviceId);
 
         return service.sendPost(SERVICE_COMMISSION_URL, new ParametrizedRequest<>(request), DB_SERVICE_COMMISSION_RESPONSE.getType());
     }
 
     // https://docs.simpay.pl/#lista-ip-serwerow-simpay
     public List<String> getServersIp() {
-        IPResponse ipResponse = service.sendGet(GET_IP_URL, IP_RESPONSE.getType());
-        return ipResponse.getIps();
+        APIResponse<IPResponse> response = service.sendGet(GET_IP_URL, IP_RESPONSE.getType());
+        return response.getRespond().getIps();
     }
 
     // https://docs.simpay.pl/#odbieranie-transakcji

@@ -5,5 +5,5 @@ import lombok.Data;
 @Data
 public class DbService {
     private int id;
-    private String suffix;
+    private String sufix;
 }

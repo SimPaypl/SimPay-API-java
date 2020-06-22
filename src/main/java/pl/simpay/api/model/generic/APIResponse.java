@@ -7,5 +7,5 @@ import java.util.List;
 @Data
 public class APIResponse<T> {
     private T respond;
-    private List<String> error;
+    private List<APIError> error;
 }
