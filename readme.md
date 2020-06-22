@@ -1,4 +1,4 @@
-# SimPay-api-java
+# SimPay-API-java
 
 ## SMS
 ### Weryfikacja kodu
