@@ -2,7 +2,7 @@
 
 ## SMS
 ### Weryfikacja kodu
-```
+```java
 Sms sms = new Sms();
 Sms sms = new Sms("key","secret");
 
@@ -24,7 +24,7 @@ double value = codeVerifyResponse.getValue(); // Code Value
 ```
 
 ### Pobieranie listy usług
-```
+```java
 Sms sms = new Sms();
 Sms sms = new Sms("key","secret");
 
@@ -40,7 +40,7 @@ List<Service> services = serviceList.getServices(); // List of services
 ```
 
 ## SMS XML
-```
+```java
 SmsXml smsXml = new SmsXml("apikey");
 String code = smsXml.generateCode(); // Generate code
 double number = smsXml.getSmsValue("number"); // retrieve information's about sms
@@ -50,7 +50,7 @@ boolean ip = smsXml.getServersIp("ip"); // Check if passed ip is valid ip of sim
 
 ## Direct Billing
 ### Generowanie transakcji
-```
+```java
 DirectBilling directBilling = new DirectBilling();
 DirectBilling directBilling = new DirectBilling("apiKey", "secret", false, 1);
 
@@ -71,7 +71,7 @@ dbGenerateResponse.getStatus(); // Status received from api
 ```
 
 ### Pobieranie danych o transakcji
-```
+```java
 DirectBilling directBilling = new DirectBilling();
 DirectBilling directBilling = new DirectBilling("apiKey", "secret", false, 1);
 
@@ -86,7 +86,7 @@ DbTransaction respond = response.getRespond();
 ```
 
 ### Pobieranie listy usług DCB
-```
+```java
 DirectBilling directBilling = new DirectBilling();
 DirectBilling directBilling = new DirectBilling("apiKey", "secret", false, 1);
 
@@ -100,7 +100,7 @@ DbTransaction respond = response.getRespond();
 ```
 
 ### Pobieranie maksymalnych kwot transakcji
-```
+```java
 DirectBilling directBilling = new DirectBilling();
 DirectBilling directBilling = new DirectBilling("apiKey", "secret", false, 1);
 
@@ -113,7 +113,7 @@ APIResponse<List<DbTransactionLimit>> response = directBilling.getTransactionLim
 ```
 
 ### Pobieranie prowizji dla usługi
-```
+```java
 DirectBilling directBilling = new DirectBilling();
 DirectBilling directBilling = new DirectBilling("apiKey", "secret", false, 1);
 
@@ -126,14 +126,14 @@ List<DbCommission> response = directBilling.getServiceCommission(request);
 ```
 
 ### Pobieranie adresów IP serwerów SimPay
-```
+```java
 DirectBilling directBilling = new DirectBilling();
 
 List<String> response = directBilling.getServersIp();
 ```
 
 ### Obliczanie podpisu sign
-```
+```java
 DirectBilling directBilling = new DirectBilling();
 
 String sign = directBilling.sign(int id, String status, String valuenet, String valuepartner, String control);
