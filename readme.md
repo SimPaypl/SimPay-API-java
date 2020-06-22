@@ -1,184 +1,140 @@
-# Simpay API in Java 
-API for one-time use SMS code, DirectBilling and SMS as XML.
+# java-simpay-api
 
-## Used technology
-- Java Spring (Web-services)
-- Gradle
-- JDK 1.8
+## SMS
+### Weryfikacja kodu
+```
+Sms sms = new Sms();
+Sms sms = new Sms("key","secret");
 
-## One-time use code
-Example:
-```java
-    @Autowired        
-    private SmsRequestService smsRequestService;
+CodeVerifyRequest request = new CodeVerifyRequest();
+request.setCode("code");
+request.setKey("key"); // can be omitted  by passing value in constructor
+request.setSecret("secret"); // can be omitted  by passing value in constructor
+request.setNumber("number");
+request.setService_id("service_id");
 
-        SmsStatusResponse response = smsRequestService.getResponse("123", "7136", "sms-code");
-
-        if (SimpayStatusType.OK.name().equals(response.getRespond().getStatus())) {
-
-            System.out.println("The code is correct");
-        }
-
-        if (SimpayStatusType.USED.name().equals(response.getRespond().getStatus())) {
-
-            System.out.println("The code has been used");
-        }
-
-        if (!CollectionUtils.isEmpty(response.getError())) {
-            Error error = response.getError().get(0);
-
-            System.out.println("Error code: " + error.getErrorCode());
-            System.out.println("Error message: " + error.getErrorName());
-            System.out.println("Error value: " + error.getErrorValue());
-        }
+APIResponse<CodeVerifyResponse> response = sms.verifyCode(request);
+List<String> error = response.getError(); // List of errors, if request was successful list will be empty
+CodeVerifyResponse codeVerifyResponse = response.getRespond();
+int from = codeVerifyResponse.getFrom(); // Sender number
+int number = codeVerifyResponse.getNumber(); // Number where sms were sent
+String status = codeVerifyResponse.getStatus(); // Status received from api
+int test = codeVerifyResponse.getTest(); // 1 if sms was test else 0
+double value = codeVerifyResponse.getValue(); // Code Value
 ```
 
-## DirectBilling
+### Pobieranie listy usług
+```
+Sms sms = new Sms();
+Sms sms = new Sms("key","secret");
 
-Example of creating a payment url
-```java
-    public DbPaymentUrl createPaymentUrl(String serviceId, String control, AmountType amountType, String amountValue) throws IOException {
-        List<NameValuePair> params = createParams(serviceId, control, amountType, amountValue);
-        HttpResponse response = httpPostService.getResponse(DB_API_URL, params);
 
-        return GsonUtil.convertToDbPaymentUrl(response.getEntity().getContent());
-    }
-
-    private List<NameValuePair> createParams(String serviceId, String control, AmountType amountType, String amountValue) {
-        List<NameValuePair> params = new ArrayList<>();
-
-        //Service ID from Simpay partner panel
-        //Required: yes
-        //Type: String
-        params.add(new BasicNameValuePair("serviceId", serviceId));
-
-        //Your own transaction ID
-        //Required: yes
-        //Type: String
-        params.add(new BasicNameValuePair("control", control));
-
-        //Type of amount which will be charged your customer
-        //"amount" - net value of transaction (will be increased by 23% VAT)
-        //"amount_gross" - gross value of transaction (with 23% VAT)
-        //"amount_required" - real commission which you have to receive, independently of the mobile operator
-        //amount value - "1.00" is 1,00 zł, 0.01 is 0,01 zł, 10.00 is 10,00 zł etc.
-        //Required: yes, one of the above
-        //Type: String
-        params.add(new BasicNameValuePair(amountType.getType(), amountValue));
-
-        //URL to redirect after success payment
-        //Required: no
-        //Type: String
-        params.add(new BasicNameValuePair("complete", "https://your.domain.com/success"));
-
-        //URL to redirect after unsuccessful payment
-        //Required: no
-        //Type: String
-        params.add(new BasicNameValuePair("failure", "https://your.domain.com/failure"));
-
-        //Set mobile operator
-        //"1" – Orange,
-        //"2" – Play,
-        //"3" – T-Mobile,
-        //"4" – Plus GSM
-        //Required: no, by default Simpay will recognize the operator basing on the mobile phone number
-        //Type: String
-        params.add(new BasicNameValuePair("provider", "1"));
-
-        Sha256Util.addDbPaymentControlSign(params, serviceId, amountValue, control);
-
-        return params;
-    }
+ServiceListRequest request = new ServiceListRequest();
+request.setKey("key");
+request.setSecret("secret");
+APIResponse<ServicesResponse> response = sms.getServiceList(request);
+List<String> error = response.getError(); // List of errors, if request was successful list will be empty
+ServicesResponse serviceList = response.getRespond();
+String status = serviceList.getStatus(); // Status received from api
+List<Service> services = serviceList.getServices(); // List of services
 ```
 
-Receiving response with payment status by POST request from Simpay
-```java
-@RestController
-public class DbResponseController {
-
-    private static final String CONFIRMATION_RESPONSE = "OK";
-
-    @PostMapping(value = "/simpay_api")
-    public String getResponse(@RequestParam MultiValueMap<String, String> responseData) {
-        DbPaymentResponse dbPaymentResponse = PaymentResponseBuilder.buildPaymentResponse(responseData);
-
-        if (dbPaymentResponseSignIsValid(dbPaymentResponse)
-                && PaymentResponseStatus.ORDER_PAYED.equals(dbPaymentResponse.getStatus())) {
-
-            System.out.println("Payment has been successfully completed");
-        }
-
-        if (dbPaymentResponseSignIsValid(dbPaymentResponse)
-                && PaymentResponseStatus.ORDER_ACCEPTED.equals(dbPaymentResponse.getStatus())) {
-
-            System.out.println("Order has been accepted - but not paid yet");
-        }
-
-        if (dbPaymentResponseSignIsValid(dbPaymentResponse)
-                && PaymentResponseStatus.ORDER_REJECTED.equals(dbPaymentResponse.getStatus())) {
-
-            System.out.println("Payment has been rejected");
-        }
-
-        return CONFIRMATION_RESPONSE;
-    }
-}
+## SMS XML
+```
+SmsXml smsXml = new SmsXml("apikey");
+String code = smsXml.generateCode(); // Generate code
+double number = smsXml.getSmsValue("number"); // retrieve information's about sms
+String sms = smsXml.generateXml("sms"); // Generate xml from sms message
+boolean ip = smsXml.getServersIp("ip"); // Check if passed ip is valid ip of simpay servers
 ```
 
-Check payment status by transactionId
-```java
-@Autowired
-private DbService dbService;
+## Direct Billing
+### Generowanie transakcji
+```
+DirectBilling directBilling = new DirectBilling();
+DirectBilling directBilling = new DirectBilling("apiKey", "secret", false, 1);
 
-PaymentStatusResponse status = dbService.getPaymentStatus(String transactionId);
+DbGenerateRequest request = new DbGenerateRequest();
+request.setAmount("amount");
+request.setAmount_gross("amount_gross");
+request.setAmount_required("amount_required");
+request.setComplete("complete");
+request.setFailure("failure");
+request.setProvider(Operator.ORANGE); // orange, play, t-mobile, plus-gsm
+request.setControl("control");
+request.setServiceId(1);
+
+DbGenerateResponse dbGenerateResponse = directBilling.generateTransaction(request);
+dbGenerateResponse.getLink(); // Link
+dbGenerateResponse.getName(); // Transaction Name
+dbGenerateResponse.getStatus(); // Status received from api
 ```
 
-Get all active DB services
-```java
-@Autowired
-private DbService dbService;
+### Pobieranie danych o transakcji
+```
+DirectBilling directBilling = new DirectBilling();
+DirectBilling directBilling = new DirectBilling("apiKey", "secret", false, 1);
 
-DbActiveServices serviceList = dbService.getDbServices();
+DbTransactionRequest request = new DbTransactionRequest();
+request.setId(1);
+request.setKey("key"); // can be omitted  by passing value in constructor
+request.setSecret("secret");  // can be omitted  by passing value in constructor
+
+APIResponse<DbTransaction> response = directBilling.getTransaction(request);
+List<String> error = response.getError(); // List of errors, if request was successful list will be empty
+DbTransaction respond = response.getRespond();
 ```
 
-Get the maximum transaction value for the service
-```java
-@Autowired
-private DbService dbService;
+### Pobieranie listy usług DCB
+```
+DirectBilling directBilling = new DirectBilling();
+DirectBilling directBilling = new DirectBilling("apiKey", "secret", false, 1);
 
-DbMaxTransactionValue maxValue = dbService.getDbMaxTransactionValue(String serviceId);
+DbServicesListRequest request = new DbServicesListRequest();
+request.setApi("key"); // can be omitted  by passing value in constructor
+request.setSecret("secret");  // can be omitted  by passing value in constructor
+
+APIResponse<DbServicesListResponse> response = directBilling.getServices(request);
+List<String> error = response.getError(); // List of errors, if request was successful list will be empty
+DbTransaction respond = response.getRespond();
 ```
 
-Get commission rate for the  service
-```java
-@Autowired
-private DbService dbService;
+### Pobieranie maksymalnych kwot transakcji
+```
+DirectBilling directBilling = new DirectBilling();
+DirectBilling directBilling = new DirectBilling("apiKey", "secret", false, 1);
 
-DbServiceCommissionRate commissionRate = dbService.getDbServiceCommission(String serviceId);
+DbTransactionLimitsRequest request = new DbTransactionLimitsRequest();
+request.setService_id(1);
+request.setApi("key"); // can be omitted  by passing value in constructor
+request.setSecret("secret");  // can be omitted  by passing value in constructor
+
+APIResponse<List<DbTransactionLimit>> response = directBilling.getTransactionLimits(request);
 ```
 
-## XML
-With every transaction, Simpay will request by POST a XML response with generated text message for customer. 
+### Pobieranie prowizji dla usługi
+```
+DirectBilling directBilling = new DirectBilling();
+DirectBilling directBilling = new DirectBilling("apiKey", "secret", false, 1);
 
-```java
-@RestController
-public class XmlRequestController {
+DbServiceCommissionRequest request = new DbServiceCommissionRequest();
+request.setService_id(1);
+request.setApi("key"); // can be omitted  by passing value in constructor
+request.setSecret("secret");  // can be omitted  by passing value in constructor
 
-    private XmlResponseService xmlResponseService;
-
-    public XmlRequestController(XmlResponseService xmlResponseService) {
-        this.xmlResponseService = xmlResponseService;
-    }
-
-    @PostMapping(value = "/simpay_xml")
-    public String getXmlRequest(@RequestParam MultiValueMap<String, String> requestData) {
-        XmlRequest xmlRequest = XmlRequestBuilder.buildXmlRequest(requestData);
-        XmlRequestStatus xmlRequestStatus = XmlRequestVerifier.getStatus(xmlRequest);
-
-        return XmlRequestStatus.OK.equals(xmlRequestStatus)
-                ? xmlResponseService.createMessage(xmlRequest)
-                : xmlRequestStatus.name();
-    }
-}
+List<DbCommission> response = directBilling.getServiceCommission(request);
 ```
 
+### Pobieranie adresów IP serwerów SimPay
+```
+DirectBilling directBilling = new DirectBilling();
+
+List<String> response = directBilling.getServersIp();
+```
+
+### Obliczanie podpisu sign
+```
+DirectBilling directBilling = new DirectBilling();
+
+String sign = directBilling.sign(int id, String status, String valuenet, String valuepartner, String control);
+```
