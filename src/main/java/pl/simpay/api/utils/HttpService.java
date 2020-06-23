@@ -34,8 +34,6 @@ public class HttpService {
 
             String x = response.body().string();
 
-            System.out.println(x);
-
             return x;
         }
     }

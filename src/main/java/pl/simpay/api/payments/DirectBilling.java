@@ -13,9 +13,11 @@ import pl.simpay.api.model.generic.ParametrizedRequest;
 import pl.simpay.api.model.generic.IPResponse;
 import pl.simpay.api.utils.Hashing;
 import pl.simpay.api.utils.HttpService;
+import pl.simpay.api.utils.Reflections;
 
 import java.text.DecimalFormat;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class DirectBilling {
@@ -62,7 +64,7 @@ public class DirectBilling {
 
     // https://docs.simpay.pl/#generowanie-transakcji
     public DbGenerateResponse generateTransaction(@NonNull DbGenerateRequest request) {
-        if (request.getService_id() == null) request.setService_id(serviceId);
+        if (request.getServiceId() == null) request.setServiceId(serviceId);
 
         String amount = "";
 
@@ -74,15 +76,12 @@ public class DirectBilling {
 
         FormBody.Builder builder = new FormBody.Builder();
 
-        builder.add("serviceId", request.getService_id());
-        builder.add("amount", request.getAmount());
-        builder.add("control", request.getControl());
-
-        System.out.println(decimalFormat.format(Double.valueOf(amount)));
-
         request.setSign(Hashing.sha256hex(this.serviceId + "" + decimalFormat.format(Double.valueOf(amount)).replace(',', '.') + "" + request.getControl() + "" + this.apiKey));
 
-        builder.add("sign", request.getSign());
+        for (Map.Entry<String, String> entry : Reflections.serializeObject(request).entrySet()) {
+            System.out.println(entry);
+            builder.add(entry.getKey(), entry.getValue());
+        }
 
         return service.sendPost(API_URL, builder.build(), DbGenerateResponse.class);
     }
