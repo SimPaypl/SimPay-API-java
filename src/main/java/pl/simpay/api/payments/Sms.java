@@ -1,55 +1,96 @@
 package pl.simpay.api.payments;
 
-import com.google.gson.reflect.TypeToken;
-import lombok.Data;
-import lombok.NonNull;
-import lombok.SneakyThrows;
-import pl.simpay.api.model.generic.APIResponse;
-import pl.simpay.api.model.generic.ParametrizedRequest;
-import pl.simpay.api.model.sms.request.ServiceListRequest;
-import pl.simpay.api.model.sms.request.CodeVerifyRequest;
-import pl.simpay.api.model.sms.respond.CodeVerifyResponse;
-import pl.simpay.api.model.sms.respond.ServicesResponse;
-import pl.simpay.api.utils.HttpService;
+import com.squareup.moshi.Types;
+import lombok.RequiredArgsConstructor;
+import pl.simpay.api.model.sms.code.CodeVerifyDTO;
+import pl.simpay.api.model.sms.number.NumberDTO;
+import pl.simpay.api.model.sms.SmsServiceDTO;
+import pl.simpay.api.model.sms.details.SmsServiceDetailsDTO;
+import pl.simpay.api.model.sms.transaction.SmsTransactionDTO;
+import pl.simpay.api.model.sms.transaction.SmsTransactionDetailsDTO;
+import pl.simpay.api.model.request.CodeVerifyRequest;
+import pl.simpay.api.model.response.PaginatedResponse;
+import pl.simpay.api.model.response.Response;
+import pl.simpay.api.service.RestService;
 
-@Data
+import java.util.Set;
+
+@SuppressWarnings("unchecked")
+@RequiredArgsConstructor
 public class Sms {
-    private static final HttpService service = new HttpService();
-    private static final String VERIFY_CODE_URL = "https://simpay.pl/api/status";
-    private static final String SERVICE_LIST_URL = "https://simpay.pl/api/get_services";
 
-    private static final TypeToken<APIResponse<ServicesResponse>> SERVICE_LIST_RESPONSE = new TypeToken<APIResponse<ServicesResponse>>() {};
-    private static final TypeToken<APIResponse<CodeVerifyResponse>> VERIFY_CODE_RESPONSE = new TypeToken<APIResponse<CodeVerifyResponse>>() {};
+    private static final int DEFAULT_PAGE = 1;
+    private static final int DEFAULT_LIMIT = 15;
 
-    private String apiKey;
-    private String secret;
-    private String serviceId;
+    private final RestService restService;
 
-    public Sms(String apiKey, String secret, String serviceId) {
-        this.apiKey = apiKey;
-        this.secret = secret;
-        this.serviceId = serviceId;
+    public PaginatedResponse<Set<SmsServiceDTO>> getServiceList(){
+        return getServiceList(DEFAULT_PAGE, DEFAULT_LIMIT);
     }
 
-    public Sms(String apiKey, String secret) {
-        this.apiKey = apiKey;
-        this.secret = secret;
+    public PaginatedResponse<Set<SmsServiceDTO>> getServiceList(int page, int limit) {
+        var endpoint = String.format("/sms?page=%d&limit=%d", page, limit);
+        var parameterizedType = Types.newParameterizedType(PaginatedResponse.class, Types.newParameterizedType(Set.class, SmsServiceDTO.class));
+        return (PaginatedResponse<Set<SmsServiceDTO>>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    // https://docs.simpay.pl/#weryfikacja-kodu
-    @SneakyThrows public APIResponse<CodeVerifyResponse> verifyCode(@NonNull CodeVerifyRequest request) {
-        if (request.getKey() == null) request.setKey(apiKey);
-        if (request.getSecret() == null) request.setSecret(secret);
-        if (request.getService_id() == null) request.setService_id(serviceId);
-
-        return service.sendPost(VERIFY_CODE_URL, new ParametrizedRequest<>(request), VERIFY_CODE_RESPONSE.getType());
+    public Response<SmsServiceDetailsDTO> getServiceDetails(int serviceId) {
+        var endpoint = String.format("/sms/%d", serviceId);
+        var parameterizedType = Types.newParameterizedType(Response.class, SmsServiceDetailsDTO.class);
+        return (Response<SmsServiceDetailsDTO>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    // https://docs.simpay.pl/#pobieranie-listy-uslug
-    @SneakyThrows public APIResponse<ServicesResponse> getServiceList(@NonNull ServiceListRequest request) {
-        if (request.getKey() == null) request.setKey(apiKey);
-        if (request.getSecret() == null) request.setSecret(secret);
+    public PaginatedResponse<Set<SmsTransactionDTO>> getTransactions(int serviceId) {
+        return getTransactions(serviceId, DEFAULT_PAGE, DEFAULT_LIMIT);
+    }
 
-        return service.sendPost(SERVICE_LIST_URL, new ParametrizedRequest<>(request), SERVICE_LIST_RESPONSE.getType());
+    public PaginatedResponse<Set<SmsTransactionDTO>> getTransactions(int serviceId, int page, int limit) {
+        var endpoint = String.format("/sms/%d/transactions?page=%d&limit=%d", serviceId, page, limit);
+        var parameterizedType = Types.newParameterizedType(PaginatedResponse.class, Types.newParameterizedType(Set.class, SmsTransactionDTO.class));
+        return (PaginatedResponse<Set<SmsTransactionDTO>>) restService.sendGetRequest(endpoint, parameterizedType);
+    }
+
+    public Response<SmsTransactionDetailsDTO> getTransactionDetails(int serviceId, int transactionId) {
+        var endpoint = String.format("/sms/%d/transactions/%d", serviceId, transactionId);
+        var parameterizedType = Types.newParameterizedType(Response.class, SmsTransactionDetailsDTO.class);
+        return (Response<SmsTransactionDetailsDTO>) restService.sendGetRequest(endpoint, parameterizedType);
+    }
+
+    public PaginatedResponse<Set<NumberDTO>> getServiceNumbers(int serviceId){
+        return getServiceNumbers(serviceId, DEFAULT_PAGE, DEFAULT_LIMIT);
+    }
+
+    public PaginatedResponse<Set<NumberDTO>> getServiceNumbers(int serviceId, int page, int limit) {
+        var endpoint = String.format("/sms/%d/numbers?page=%d&limit=%d", serviceId, page, limit);
+        var parameterizedType = Types.newParameterizedType(PaginatedResponse.class, Types.newParameterizedType(Set.class, NumberDTO.class));
+        return (PaginatedResponse<Set<NumberDTO>>) restService.sendGetRequest(endpoint, parameterizedType);
+    }
+
+    public Response<NumberDTO> getServiceNumbersDetails(int serviceId, long number) {
+        var endpoint = String.format("/sms/%d/numbers/%d", serviceId, number);
+        var parameterizedType = Types.newParameterizedType(Response.class, NumberDTO.class);
+        return (Response<NumberDTO>) restService.sendGetRequest(endpoint, parameterizedType);
+    }
+
+    public PaginatedResponse<Set<NumberDTO>> getNumbers(){
+        return getNumbers(DEFAULT_PAGE, DEFAULT_LIMIT);
+    }
+
+    public PaginatedResponse<Set<NumberDTO>> getNumbers(int page, int limit) {
+        var endpoint = String.format("/sms/numbers?page=%d&limit=%d", page, limit);
+        var parameterizedType = Types.newParameterizedType(PaginatedResponse.class, Types.newParameterizedType(Set.class, NumberDTO.class));
+        return (PaginatedResponse<Set<NumberDTO>>) restService.sendGetRequest(endpoint, parameterizedType);
+    }
+
+    public Response<NumberDTO> getNumberDetails(long number) {
+        var endpoint = String.format("/sms/numbers/%d", number);
+        var parameterizedType = Types.newParameterizedType(Response.class, NumberDTO.class);
+        return (Response<NumberDTO>) restService.sendGetRequest(endpoint, parameterizedType);
+    }
+
+    public Response<CodeVerifyDTO> verifyCode(int serviceId, String code, long number) {
+        var endpoint = String.format("/sms/%d", serviceId);
+        var parameterizedType = Types.newParameterizedType(Response.class, CodeVerifyDTO.class);
+        return (Response<CodeVerifyDTO>) restService.sendPostRequest(endpoint, new CodeVerifyRequest(code, number), CodeVerifyRequest.class, parameterizedType);
     }
 }
