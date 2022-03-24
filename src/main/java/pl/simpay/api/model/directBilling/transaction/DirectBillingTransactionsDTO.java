@@ -5,7 +5,7 @@ import com.squareup.moshi.Json;
 import java.time.LocalDateTime;
 
 public record DirectBillingTransactionsDTO(
-        int id,
+        String id,
         TransactionStatus status,
         double value,
         @Json(name = "value_netto") double netValue,

@@ -64,8 +64,8 @@ public class DirectBilling {
         return (PaginatedResponse<Set<DirectBillingTransactionsDTO>>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public Response<DirectBillingTransactionDetailsDTO> getTransactionDetails(int serviceId, int transactionId) {
-        var endpoint = String.format("/directbilling/%d/transactions/%d", serviceId, transactionId);
+    public Response<DirectBillingTransactionDetailsDTO> getTransactionDetails(int serviceId, String transactionId) {
+        var endpoint = String.format("/directbilling/%d/transactions/%s", serviceId, transactionId);
         var parameterizedType = Types.newParameterizedType(Response.class, DirectBillingTransactionDetailsDTO.class);
         return (Response<DirectBillingTransactionDetailsDTO>) restService.sendGetRequest(endpoint, parameterizedType);
     }
@@ -85,7 +85,7 @@ public class DirectBilling {
 
     private String generateSignature(String key, DirectBillingTransactionNotificationDTO notification) {
         var pipe = "|";
-        var fields = List.of(String.valueOf(notification.id()), notification.status().getStatusName(), String.valueOf(notification.values().net()), String.valueOf(notification.values().gross()), String.valueOf(notification.values().partner()), notification.returns().success(), notification.returns().failure(), notification.control(), notification.number(), String.valueOf(notification.provider()), notification.signature(), key);
+        var fields = List.of(String.valueOf(notification.id()), notification.status().getStatusName(), String.valueOf(notification.values().net()), String.valueOf(notification.values().gross()), String.valueOf(notification.values().partner()), notification.returns().success(), notification.returns().failure(), notification.control(), notification.numberFrom(), String.valueOf(notification.provider()), notification.signature(), key);
         return Hashing.sha256().hashString(String.join(pipe, fields), StandardCharsets.UTF_8).toString();
     }
 
