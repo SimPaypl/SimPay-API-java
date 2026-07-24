@@ -34,40 +34,40 @@ public class Sms {
         return (PaginatedResponse<Set<SmsServiceDTO>>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public Response<SmsServiceDetailsDTO> getServiceDetails(int serviceId) {
-        var endpoint = String.format("/sms/%d", serviceId);
+    public Response<SmsServiceDetailsDTO> getServiceDetails(String serviceId) {
+        var endpoint = String.format("/sms/%s", serviceId);
         var parameterizedType = Types.newParameterizedType(Response.class, SmsServiceDetailsDTO.class);
         return (Response<SmsServiceDetailsDTO>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public PaginatedResponse<Set<SmsTransactionDTO>> getTransactions(int serviceId) {
+    public PaginatedResponse<Set<SmsTransactionDTO>> getTransactions(String serviceId) {
         return getTransactions(serviceId, DEFAULT_PAGE, DEFAULT_LIMIT);
     }
 
-    public PaginatedResponse<Set<SmsTransactionDTO>> getTransactions(int serviceId, int page, int limit) {
-        var endpoint = String.format("/sms/%d/transactions?page=%d&limit=%d", serviceId, page, limit);
+    public PaginatedResponse<Set<SmsTransactionDTO>> getTransactions(String serviceId, int page, int limit) {
+        var endpoint = String.format("/sms/%s/transactions?page=%d&limit=%d", serviceId, page, limit);
         var parameterizedType = Types.newParameterizedType(PaginatedResponse.class, Types.newParameterizedType(Set.class, SmsTransactionDTO.class));
         return (PaginatedResponse<Set<SmsTransactionDTO>>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public Response<SmsTransactionDetailsDTO> getTransactionDetails(int serviceId, int transactionId) {
-        var endpoint = String.format("/sms/%d/transactions/%d", serviceId, transactionId);
+    public Response<SmsTransactionDetailsDTO> getTransactionDetails(String serviceId, int transactionId) {
+        var endpoint = String.format("/sms/%s/transactions/%d", serviceId, transactionId);
         var parameterizedType = Types.newParameterizedType(Response.class, SmsTransactionDetailsDTO.class);
         return (Response<SmsTransactionDetailsDTO>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public PaginatedResponse<Set<NumberDTO>> getServiceNumbers(int serviceId){
+    public PaginatedResponse<Set<NumberDTO>> getServiceNumbers(String serviceId){
         return getServiceNumbers(serviceId, DEFAULT_PAGE, DEFAULT_LIMIT);
     }
 
-    public PaginatedResponse<Set<NumberDTO>> getServiceNumbers(int serviceId, int page, int limit) {
-        var endpoint = String.format("/sms/%d/numbers?page=%d&limit=%d", serviceId, page, limit);
+    public PaginatedResponse<Set<NumberDTO>> getServiceNumbers(String serviceId, int page, int limit) {
+        var endpoint = String.format("/sms/%s/numbers?page=%d&limit=%d", serviceId, page, limit);
         var parameterizedType = Types.newParameterizedType(PaginatedResponse.class, Types.newParameterizedType(Set.class, NumberDTO.class));
         return (PaginatedResponse<Set<NumberDTO>>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public Response<NumberDTO> getServiceNumbersDetails(int serviceId, long number) {
-        var endpoint = String.format("/sms/%d/numbers/%d", serviceId, number);
+    public Response<NumberDTO> getServiceNumbersDetails(String serviceId, long number) {
+        var endpoint = String.format("/sms/%s/numbers/%d", serviceId, number);
         var parameterizedType = Types.newParameterizedType(Response.class, NumberDTO.class);
         return (Response<NumberDTO>) restService.sendGetRequest(endpoint, parameterizedType);
     }
@@ -88,8 +88,8 @@ public class Sms {
         return (Response<NumberDTO>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public Response<CodeVerifyDTO> verifyCode(int serviceId, String code, long number) {
-        var endpoint = String.format("/sms/%d", serviceId);
+    public Response<CodeVerifyDTO> verifyCode(String serviceId, String code, long number) {
+        var endpoint = String.format("/sms/%s", serviceId);
         var parameterizedType = Types.newParameterizedType(Response.class, CodeVerifyDTO.class);
         return (Response<CodeVerifyDTO>) restService.sendPostRequest(endpoint, new CodeVerifyRequest(code, number), CodeVerifyRequest.class, parameterizedType);
     }

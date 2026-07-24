@@ -5,7 +5,7 @@ import com.squareup.moshi.Json;
 import java.time.LocalDateTime;
 
 public record SmsServiceDTO(
-        int id,
+        String id,
         SmsServiceType type,
         ServiceStatus status,
         String name,

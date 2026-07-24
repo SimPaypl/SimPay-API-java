@@ -4,7 +4,7 @@ import com.squareup.moshi.Json;
 import java.time.LocalDateTime;
 
 public record DirectBillingServiceDTO(
-        int id,
+        String id,
         String name,
         String suffix,
         ServiceStatus status,

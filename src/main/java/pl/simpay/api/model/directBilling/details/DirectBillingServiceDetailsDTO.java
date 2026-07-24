@@ -7,7 +7,7 @@ import pl.simpay.api.model.directBilling.ServiceStatus;
 import java.time.LocalDateTime;
 
 public record DirectBillingServiceDetailsDTO(
-        int id,
+        String id,
         String name,
         String suffix,
         ServiceStatus status,

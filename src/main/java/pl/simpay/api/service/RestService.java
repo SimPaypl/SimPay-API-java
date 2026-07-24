@@ -1,31 +1,51 @@
 package pl.simpay.api.service;
 
+import com.squareup.moshi.JsonDataException;
+import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.Moshi;
 import dev.zacsweers.moshix.records.RecordsJsonAdapterFactory;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
-import pl.simpay.api.adapter.*;
-import pl.simpay.api.exception.ApiException;
+import okio.Buffer;
+import pl.simpay.api.adapter.Adapter;
+import pl.simpay.api.adapter.DateTimeAdapter;
+import pl.simpay.api.adapter.DirectBillingServiceStatusTypeAdapter;
+import pl.simpay.api.adapter.OperatorAdapter;
+import pl.simpay.api.adapter.SmsServiceStatusAdapter;
+import pl.simpay.api.adapter.TransactionStatusAdapter;
+import pl.simpay.api.exception.SimPayApiException;
+import pl.simpay.api.exception.SimPayNetworkException;
+import pl.simpay.api.exception.SimPaySerializationException;
+import pl.simpay.api.exception.SimPayTimeoutException;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.lang.reflect.ParameterizedType;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
 public class RestService {
-    private static final String BASE_URL = "https://api.simpay.pl";
-    private static final String APPLICATION_JSON_MIME_TYPE = "application/json";
+    private static final HttpUrl BASE_URL = Objects.requireNonNull(HttpUrl.parse("https://api.simpay.pl"));
+    private static final MediaType APPLICATION_JSON = Objects.requireNonNull(MediaType.parse("application/json"));
 
     private final Moshi moshi;
     private final OkHttpClient httpClient;
+    private final HttpUrl baseUrl;
 
     public RestService(String simKey, String simPassword) {
+        this(simKey, simPassword, BASE_URL, new OkHttpClient.Builder());
+    }
+
+    RestService(String simKey, String simPassword, HttpUrl baseUrl, OkHttpClient.Builder httpClientBuilder) {
         this.moshi = buildMoshiUnmarshaller(new DirectBillingServiceStatusTypeAdapter(), new SmsServiceStatusAdapter(), new OperatorAdapter(), new TransactionStatusAdapter(), new DateTimeAdapter());
-        this.httpClient = new OkHttpClient.Builder().addInterceptor(new AuthInterceptor(simKey, simPassword)).build();
+        this.baseUrl = baseUrl;
+        this.httpClient = httpClientBuilder.addInterceptor(new AuthInterceptor(simKey, simPassword)).build();
     }
 
     private Moshi buildMoshiUnmarshaller(Adapter<?>... adapters) {
@@ -36,33 +56,89 @@ public class RestService {
     }
 
     public Object sendGetRequest(String endpoint, ParameterizedType responseType) {
-        log.debug("Get Request To Endpoint: {}", endpoint);
-        var request = new Request.Builder().url(BASE_URL + endpoint).get().build();
+        return sendGetRequest(endpoint, Map.of(), responseType);
+    }
+
+    public Object sendGetRequest(String endpoint, Map<String, String> queryParameters, ParameterizedType responseType) {
+        var urlBuilder = resolveEndpoint(endpoint).newBuilder();
+        queryParameters.forEach(urlBuilder::addQueryParameter);
+        var request = new Request.Builder().url(urlBuilder.build()).get().build();
         try {
-            return moshi.adapter(responseType).fromJson(executeRequest(request));
-        } catch (IOException e) {
-            throw new ApiException(e.getMessage());
+            return deserialize(executeRequest(request), responseType);
+        } catch (IOException | JsonDataException e) {
+            throw new SimPaySerializationException("Could not deserialize SimPay API response", e);
         }
     }
 
     public <REQ> Object sendPostRequest(String endpoint, REQ requestBody, Class<REQ> requestType, ParameterizedType responseType) {
-        var body = moshi.adapter(requestType).toJson(requestBody);
-        log.debug("Post Request To Endpoint {}, RequestBody: {}", endpoint, body);
-        var request = new Request.Builder().url(BASE_URL + endpoint).post(RequestBody.create(body, MediaType.parse(APPLICATION_JSON_MIME_TYPE))).build();
+        final String body;
         try {
-            return moshi.adapter(responseType).fromJson(executeRequest(request));
-        } catch (IOException e) {
-            throw new ApiException(e.getMessage());
+            body = moshi.adapter(requestType).toJson(requestBody);
+        } catch (JsonDataException | IllegalArgumentException e) {
+            throw new SimPaySerializationException("Could not serialize SimPay API request", e);
+        }
+
+        var request = new Request.Builder()
+                .url(resolveEndpoint(endpoint))
+                .post(RequestBody.create(body, APPLICATION_JSON))
+                .build();
+        try {
+            return deserialize(executeRequest(request), responseType);
+        } catch (IOException | JsonDataException e) {
+            throw new SimPaySerializationException("Could not deserialize SimPay API response", e);
         }
     }
 
-    private String executeRequest(Request request) {
+    private HttpResult executeRequest(Request request) {
+        var startedAt = System.nanoTime();
         try (var response = httpClient.newCall(request).execute()) {
-            var body = Objects.requireNonNull(response.body()).string();
-            log.debug("Api Response: {}", body);
-            return body;
-        } catch (Exception e) {
-            throw new ApiException(e.getMessage());
+            var body = response.body() == null ? "" : response.body().string();
+            var durationMs = (System.nanoTime() - startedAt) / 1_000_000;
+            log.debug("{} {} -> {} ({} ms)", request.method(), request.url().encodedPath(), response.code(), durationMs);
+
+            if (!response.isSuccessful()) {
+                throw apiException(response.code(), body);
+            }
+            return new HttpResult(response.code(), body);
+        } catch (InterruptedIOException e) {
+            throw new SimPayTimeoutException("SimPay API request timed out", e);
+        } catch (IOException e) {
+            throw new SimPayNetworkException("SimPay API network request failed", e);
         }
+    }
+
+    private Object deserialize(HttpResult result, ParameterizedType responseType) throws IOException {
+        if (result.statusCode() == 204) return null;
+        return moshi.adapter(responseType).fromJson(result.body());
+    }
+
+    private HttpUrl resolveEndpoint(String endpoint) {
+        var url = baseUrl.resolve(endpoint);
+        if (url == null) {
+            throw new IllegalArgumentException("Invalid SimPay API endpoint: " + endpoint);
+        }
+        return url;
+    }
+
+    private SimPayApiException apiException(int statusCode, String responseBody) {
+        String message = "SimPay API request failed with status " + statusCode;
+        String errorCode = null;
+
+        try {
+            var parsedBody = JsonReader.of(new Buffer().writeUtf8(responseBody)).readJsonValue();
+            if (parsedBody instanceof Map<?, ?> error) {
+                var apiMessage = error.get("message");
+                var apiErrorCode = error.containsKey("errorCode") ? error.get("errorCode") : error.get("code");
+                if (apiMessage instanceof String value && !value.isBlank()) message = value;
+                if (apiErrorCode instanceof String value) errorCode = value;
+            }
+        } catch (Exception ignored) {
+            // Preserve the raw body on the exception when the API returns non-JSON content.
+        }
+
+        return new SimPayApiException(message, statusCode, errorCode, responseBody);
+    }
+
+    private record HttpResult(int statusCode, String body) {
     }
 }

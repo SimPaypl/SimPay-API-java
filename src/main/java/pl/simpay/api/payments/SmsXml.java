@@ -1,18 +1,20 @@
 package pl.simpay.api.payments;
 
-import com.google.common.hash.Hashing;
 import lombok.RequiredArgsConstructor;
+import pl.simpay.api.util.Sha256;
 
-import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.text.Normalizer;
+import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 @RequiredArgsConstructor
 public class SmsXml {
     private static final String charset = "ABCDEFGHIJKLMNPQRSTUVWXYZ123456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
     private static final Map<String, Double> codes = new HashMap<>() {{
         put("7055", 0.25);
         put("7136", 0.5);
@@ -36,16 +38,25 @@ public class SmsXml {
     private final String hashingKey;
 
     public boolean checkParameters(Map<String, Object> map) {
-        var params = List.of("send_number", "sms_text", "sms_from", "sms_id", "sign");
+        if (map == null) return false;
+
+        var params = List.of("send_number", "sms_text", "sms_from", "sms_id", "send_time", "sign");
         for (String param : params) {
-            if (!map.containsKey(param)) return false;
+            if (!map.containsKey(param) || map.get(param) == null) return false;
         }
 
-        return map.get("sign") == this.sign(map);
+        var providedSignature = String.valueOf(map.get("sign"));
+        if (!providedSignature.matches("(?i)[0-9a-f]{64}")) return false;
+
+        var expectedSignature = sign(map);
+        return MessageDigest.isEqual(
+                HexFormat.of().parseHex(expectedSignature),
+                HexFormat.of().parseHex(providedSignature)
+        );
     }
 
     public String sign(Map<String, Object> map) {
-        return Hashing.sha256().hashString(String.valueOf(map.get("sms_id")) + map.get("sms_text") + map.get("sms_from") + map.get("send_number") + map.get("send_time") + hashingKey, StandardCharsets.UTF_8).toString();
+        return Sha256.hash(String.valueOf(map.get("sms_id")) + map.get("sms_text") + map.get("sms_from") + map.get("send_number") + map.get("send_time") + hashingKey);
     }
 
     public String generateCode() {
@@ -54,14 +65,18 @@ public class SmsXml {
         StringBuilder result = new StringBuilder();
 
         while (length-- > 0) {
-            result.append(charset.charAt(ThreadLocalRandom.current().nextInt(0, charset.length())));
+            result.append(charset.charAt(RANDOM.nextInt(charset.length())));
         }
 
         return result.toString();
     }
 
     public double getSmsValue(String number) {
-        return codes.get(number);
+        var value = codes.get(number);
+        if (value == null) {
+            throw new IllegalArgumentException("Unsupported SMS number: " + number);
+        }
+        return value;
     }
 
     public String generateXml(String text) {

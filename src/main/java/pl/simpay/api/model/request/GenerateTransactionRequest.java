@@ -1,11 +1,10 @@
 package pl.simpay.api.model.request;
 
-import com.google.common.hash.Hashing;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import pl.simpay.api.util.Sha256;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Builder
@@ -22,11 +21,11 @@ public class GenerateTransactionRequest {
 
     public void sign(String key) {
         var s = amount + "|" + String.join("|", List.of(amountType, description, control, returns.success(), returns.failure(), phoneNumber, key));
-        this.signature = Hashing.sha256().hashString(s, StandardCharsets.UTF_8).toString();
+        this.signature = Sha256.hash(s);
     }
 
     public void signWithAmountAndControl(String key) {
         var s = amount + "|" + String.join("|", List.of(control, key));
-        this.signature = Hashing.sha256().hashString(s, StandardCharsets.UTF_8).toString();
+        this.signature = Sha256.hash(s);
     }
 }

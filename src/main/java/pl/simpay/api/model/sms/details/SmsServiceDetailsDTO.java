@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record SmsServiceDetailsDTO(
-        int id,
+        String id,
         SmsServiceType type,
         ServiceStatus status,
         String name,

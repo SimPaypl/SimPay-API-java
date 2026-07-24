@@ -1,6 +1,5 @@
 package pl.simpay.api.payments;
 
-import com.google.common.hash.Hashing;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
 import dev.zacsweers.moshix.records.RecordsJsonAdapterFactory;
@@ -18,9 +17,11 @@ import pl.simpay.api.model.request.GenerateTransactionRequest;
 import pl.simpay.api.model.response.PaginatedResponse;
 import pl.simpay.api.model.response.Response;
 import pl.simpay.api.service.RestService;
+import pl.simpay.api.util.Sha256;
 
-import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @SuppressWarnings("unchecked")
@@ -42,36 +43,40 @@ public class DirectBilling {
         return (PaginatedResponse<Set<DirectBillingServiceDTO>>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public Response<DirectBillingServiceDetailsDTO> getServiceDetails(int serviceId) {
-        var endpoint = String.format("/directbilling/%d", serviceId);
+    public Response<DirectBillingServiceDetailsDTO> getServiceDetails(String serviceId) {
+        var endpoint = String.format("/directbilling/%s", serviceId);
         var parameterizedType = Types.newParameterizedType(Response.class, DirectBillingServiceDetailsDTO.class);
         return (Response<DirectBillingServiceDetailsDTO>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public Response<CommissionsValuesDTO> calculateCommission(int serviceId, double amount) {
-        var endpoint = String.format("/directbilling/%d/calculate?amount=%f", serviceId, amount);
+    public Response<CommissionsValuesDTO> calculateCommission(String serviceId, double amount) {
+        var endpoint = String.format("/directbilling/%s/calculate", serviceId);
         var parameterizedType = Types.newParameterizedType(Response.class, CommissionsValuesDTO.class);
-        return (Response<CommissionsValuesDTO>) restService.sendGetRequest(endpoint, parameterizedType);
+        return (Response<CommissionsValuesDTO>) restService.sendGetRequest(
+                endpoint,
+                Map.of("amount", BigDecimal.valueOf(amount).toPlainString()),
+                parameterizedType
+        );
     }
 
-    public PaginatedResponse<Set<DirectBillingTransactionsDTO>> getTransactions(int serviceId) {
+    public PaginatedResponse<Set<DirectBillingTransactionsDTO>> getTransactions(String serviceId) {
         return getTransactions(serviceId, DEFAULT_PAGE, DEFAULT_LIMIT);
     }
 
-    public PaginatedResponse<Set<DirectBillingTransactionsDTO>> getTransactions(int serviceId, int page, int limit) {
-        var endpoint = String.format("/directbilling/%d/transactions?page=%d&limit=%d", serviceId, page, limit);
+    public PaginatedResponse<Set<DirectBillingTransactionsDTO>> getTransactions(String serviceId, int page, int limit) {
+        var endpoint = String.format("/directbilling/%s/transactions?page=%d&limit=%d", serviceId, page, limit);
         var parameterizedType = Types.newParameterizedType(PaginatedResponse.class, Types.newParameterizedType(Set.class, DirectBillingTransactionsDTO.class));
         return (PaginatedResponse<Set<DirectBillingTransactionsDTO>>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public Response<DirectBillingTransactionDetailsDTO> getTransactionDetails(int serviceId, String transactionId) {
-        var endpoint = String.format("/directbilling/%d/transactions/%s", serviceId, transactionId);
+    public Response<DirectBillingTransactionDetailsDTO> getTransactionDetails(String serviceId, String transactionId) {
+        var endpoint = String.format("/directbilling/%s/transactions/%s", serviceId, transactionId);
         var parameterizedType = Types.newParameterizedType(Response.class, DirectBillingTransactionDetailsDTO.class);
         return (Response<DirectBillingTransactionDetailsDTO>) restService.sendGetRequest(endpoint, parameterizedType);
     }
 
-    public Response<DirectBillingGenerateTransactionDTO> generateTransaction(int serviceId, GenerateTransactionRequest request) {
-        var endpoint = String.format("/directbilling/%d/transactions", serviceId);
+    public Response<DirectBillingGenerateTransactionDTO> generateTransaction(String serviceId, GenerateTransactionRequest request) {
+        var endpoint = String.format("/directbilling/%s/transactions", serviceId);
         var parameterizedType = Types.newParameterizedType(Response.class, DirectBillingGenerateTransactionDTO.class);
         return (Response<DirectBillingGenerateTransactionDTO>) restService.sendPostRequest(endpoint, request, GenerateTransactionRequest.class, parameterizedType);
     }
@@ -86,7 +91,7 @@ public class DirectBilling {
     private String generateSignature(String key, DirectBillingTransactionNotificationDTO notification) {
         var pipe = "|";
         var fields = List.of(String.valueOf(notification.id()), notification.status().getStatusName(), String.valueOf(notification.values().net()), String.valueOf(notification.values().gross()), String.valueOf(notification.values().partner()), notification.returns().success(), notification.returns().failure(), notification.control(), notification.numberFrom(), String.valueOf(notification.provider()), notification.signature(), key);
-        return Hashing.sha256().hashString(String.join(pipe, fields), StandardCharsets.UTF_8).toString();
+        return Sha256.hash(String.join(pipe, fields));
     }
 
 }

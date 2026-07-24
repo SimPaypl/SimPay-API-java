@@ -5,7 +5,7 @@ import pl.simpay.api.model.request.RedirectURL;
 
 public record DirectBillingTransactionNotificationDTO(
         String id,
-        @Json(name = "service_id") int serviceId,
+        String serviceId,
         TransactionStatus status,
         Values values,
         RedirectURL returns,

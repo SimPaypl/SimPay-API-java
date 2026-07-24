@@ -4,4 +4,8 @@ public class ApiException extends RuntimeException {
     public ApiException(String message) {
         super(String.format("Api Call Exception: \n%s", message));
     }
+
+    public ApiException(String message, Throwable cause) {
+        super(String.format("Api Call Exception: \n%s", message), cause);
+    }
 }
