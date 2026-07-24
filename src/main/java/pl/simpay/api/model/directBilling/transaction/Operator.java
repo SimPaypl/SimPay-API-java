@@ -9,7 +9,8 @@ public enum Operator {
     ORANGE("Orange"),
     PLUS("Plus"),
     PLAY("Play"),
-    T_MOBILE("T-mobile");
+    T_MOBILE("T-mobile"),
+    NETIA("Netia");
 
     @Getter
     private final String operatorName;

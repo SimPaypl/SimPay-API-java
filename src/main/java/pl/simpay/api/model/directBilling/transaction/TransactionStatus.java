@@ -1,7 +1,7 @@
 package pl.simpay.api.model.directBilling.transaction;
 
 import lombok.Getter;
-import pl.simpay.api.exception.UnsupportedOperatorException;
+import pl.simpay.api.exception.UnsupportedStatusTypeException;
 
 import java.util.Arrays;
 
@@ -21,6 +21,6 @@ public enum TransactionStatus {
     }
 
     public static TransactionStatus getByName(String name) {
-        return Arrays.stream(values()).filter(operator -> operator.getStatusName().equalsIgnoreCase(name)).findFirst().orElseThrow(() -> new UnsupportedOperatorException(name));
+        return Arrays.stream(values()).filter(status -> status.getStatusName().equalsIgnoreCase(name)).findFirst().orElseThrow(() -> new UnsupportedStatusTypeException(name));
     }
 }

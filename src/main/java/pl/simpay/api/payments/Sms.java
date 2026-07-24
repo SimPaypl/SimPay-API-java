@@ -93,4 +93,10 @@ public class Sms {
         var parameterizedType = Types.newParameterizedType(Response.class, CodeVerifyDTO.class);
         return (Response<CodeVerifyDTO>) restService.sendPostRequest(endpoint, new CodeVerifyRequest(code, number), CodeVerifyRequest.class, parameterizedType);
     }
+
+    public Response<CodeVerifyDTO> verifyCode(String serviceId, String code) {
+        var endpoint = String.format("/sms/%s", serviceId);
+        var parameterizedType = Types.newParameterizedType(Response.class, CodeVerifyDTO.class);
+        return (Response<CodeVerifyDTO>) restService.sendPostRequest(endpoint, new CodeVerifyRequest(code, null), CodeVerifyRequest.class, parameterizedType);
+    }
 }

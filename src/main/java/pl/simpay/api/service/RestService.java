@@ -17,6 +17,8 @@ import pl.simpay.api.adapter.DirectBillingServiceStatusTypeAdapter;
 import pl.simpay.api.adapter.OperatorAdapter;
 import pl.simpay.api.adapter.SmsServiceStatusAdapter;
 import pl.simpay.api.adapter.TransactionStatusAdapter;
+import pl.simpay.api.adapter.JavaTimeAdapter;
+import pl.simpay.api.adapter.BigDecimalJsonAdapter;
 import pl.simpay.api.exception.SimPayApiException;
 import pl.simpay.api.exception.SimPayNetworkException;
 import pl.simpay.api.exception.SimPaySerializationException;
@@ -25,9 +27,13 @@ import pl.simpay.api.exception.SimPayTimeoutException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.math.BigDecimal;
 
 @Slf4j
 public class RestService {
@@ -48,8 +54,22 @@ public class RestService {
         this.httpClient = httpClientBuilder.addInterceptor(new AuthInterceptor(simKey, simPassword)).build();
     }
 
+    public static RestService bearer(String token) {
+        return bearer(token, BASE_URL, new OkHttpClient.Builder());
+    }
+
+    static RestService bearer(String token, HttpUrl baseUrl, OkHttpClient.Builder builder) {
+        return new RestService(baseUrl, builder.addInterceptor(new BearerAuthInterceptor(token)));
+    }
+
+    private RestService(HttpUrl baseUrl, OkHttpClient.Builder builder) {
+        this.moshi = buildMoshiUnmarshaller(new DirectBillingServiceStatusTypeAdapter(), new SmsServiceStatusAdapter(), new OperatorAdapter(), new TransactionStatusAdapter(), new DateTimeAdapter());
+        this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl");
+        this.httpClient = builder.build();
+    }
+
     private Moshi buildMoshiUnmarshaller(Adapter<?>... adapters) {
-        var builder = new Moshi.Builder();
+        var builder = new Moshi.Builder().add(BigDecimal.class, new BigDecimalJsonAdapter()).add(new JavaTimeAdapter());
         builder.add(new RecordsJsonAdapterFactory());
         Arrays.stream(adapters).forEach(builder::add);
         return builder.build();
@@ -59,7 +79,15 @@ public class RestService {
         return sendGetRequest(endpoint, Map.of(), responseType);
     }
 
+    public Object sendGetRequest(String endpoint, Type responseType) {
+        return sendGetRequest(endpoint, Map.of(), responseType);
+    }
+
     public Object sendGetRequest(String endpoint, Map<String, String> queryParameters, ParameterizedType responseType) {
+        return sendGetRequest(endpoint, queryParameters, (Type) responseType);
+    }
+
+    public Object sendGetRequest(String endpoint, Map<String, String> queryParameters, Type responseType) {
         var urlBuilder = resolveEndpoint(endpoint).newBuilder();
         queryParameters.forEach(urlBuilder::addQueryParameter);
         var request = new Request.Builder().url(urlBuilder.build()).get().build();
@@ -71,6 +99,18 @@ public class RestService {
     }
 
     public <REQ> Object sendPostRequest(String endpoint, REQ requestBody, Class<REQ> requestType, ParameterizedType responseType) {
+        return sendJsonRequest("POST", endpoint, requestBody, requestType, responseType);
+    }
+
+    public <REQ> Object sendPostRequest(String endpoint, REQ requestBody, Class<REQ> requestType, Type responseType) {
+        return sendJsonRequest("POST", endpoint, requestBody, requestType, responseType);
+    }
+
+    public <REQ> Object sendDeleteRequest(String endpoint, REQ requestBody, Class<REQ> requestType, Type responseType) {
+        return sendJsonRequest("DELETE", endpoint, requestBody, requestType, responseType);
+    }
+
+    private <REQ> Object sendJsonRequest(String method, String endpoint, REQ requestBody, Class<REQ> requestType, Type responseType) {
         final String body;
         try {
             body = moshi.adapter(requestType).toJson(requestBody);
@@ -80,7 +120,7 @@ public class RestService {
 
         var request = new Request.Builder()
                 .url(resolveEndpoint(endpoint))
-                .post(RequestBody.create(body, APPLICATION_JSON))
+                .method(method, RequestBody.create(body, APPLICATION_JSON))
                 .build();
         try {
             return deserialize(executeRequest(request), responseType);
@@ -107,7 +147,7 @@ public class RestService {
         }
     }
 
-    private Object deserialize(HttpResult result, ParameterizedType responseType) throws IOException {
+    private Object deserialize(HttpResult result, Type responseType) throws IOException {
         if (result.statusCode() == 204) return null;
         return moshi.adapter(responseType).fromJson(result.body());
     }
@@ -124,6 +164,7 @@ public class RestService {
         String message = "SimPay API request failed with status " + statusCode;
         String errorCode = null;
 
+        Map<String, List<String>> errors = Map.of();
         try {
             var parsedBody = JsonReader.of(new Buffer().writeUtf8(responseBody)).readJsonValue();
             if (parsedBody instanceof Map<?, ?> error) {
@@ -131,11 +172,26 @@ public class RestService {
                 var apiErrorCode = error.containsKey("errorCode") ? error.get("errorCode") : error.get("code");
                 if (apiMessage instanceof String value && !value.isBlank()) message = value;
                 if (apiErrorCode instanceof String value) errorCode = value;
+                if (error.get("errors") instanceof Map<?, ?> rawErrors) {
+                    var parsed = new java.util.LinkedHashMap<String, List<String>>();
+                    rawErrors.forEach((key, value) -> {
+                        var messages = new ArrayList<String>();
+                        if (value instanceof List<?> values) values.forEach(item -> messages.add(String.valueOf(item)));
+                        else if (value != null) messages.add(String.valueOf(value));
+                        parsed.put(String.valueOf(key), List.copyOf(messages));
+                    });
+                    errors = Map.copyOf(parsed);
+                }
             }
         } catch (Exception ignored) {
             // Preserve the raw body on the exception when the API returns non-JSON content.
         }
 
+        if ((statusCode == 400) && errorCode != null && java.util.Set.of("INVALID_BLIK_CODE", "INVALID_BLIK_CODE_FORMAT", "BLIK_CODE_EXPIRED", "BLIK_CODE_CANCELLED", "BLIK_CODE_USED", "BLIK_CODE_NOT_SUPPORTED").contains(errorCode))
+            return new pl.simpay.api.exception.InvalidBlikTicketException(message, statusCode, errorCode, responseBody);
+        if (statusCode == 401 || statusCode == 403) return new pl.simpay.api.exception.SimPayAuthorizationException(message, statusCode, errorCode, responseBody);
+        if (statusCode == 404) return new pl.simpay.api.exception.SimPayNotFoundException(message, errorCode, responseBody);
+        if (statusCode == 422) return new pl.simpay.api.exception.SimPayValidationException(message, errorCode, responseBody, errors);
         return new SimPayApiException(message, statusCode, errorCode, responseBody);
     }
 

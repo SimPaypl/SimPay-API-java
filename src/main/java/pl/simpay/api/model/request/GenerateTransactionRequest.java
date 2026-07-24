@@ -6,17 +6,22 @@ import lombok.ToString;
 import pl.simpay.api.util.Sha256;
 
 import java.util.List;
+import com.squareup.moshi.Json;
 
 @Builder
 @ToString
 @EqualsAndHashCode
 public class GenerateTransactionRequest {
     private final double amount;
-    private final String amountType;
+    @Builder.Default
+    private final String amountType = "gross";
     private final String description;
     private final String control;
     private final RedirectURL returns;
     private final String phoneNumber;
+    @Json(name = "steamid")
+    private final String steamId;
+    private final String email;
     private String signature;
 
     public void sign(String key) {

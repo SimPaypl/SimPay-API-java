@@ -1,4 +1,6 @@
 package pl.simpay.api.model.directBilling.transaction;
 
-public record Values(double net, double gross, double partner) {
+import java.math.BigDecimal;
+
+public record Values(BigDecimal net, BigDecimal gross, BigDecimal partner) {
 }

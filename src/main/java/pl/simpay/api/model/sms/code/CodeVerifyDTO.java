@@ -8,7 +8,7 @@ public record CodeVerifyDTO(
         boolean used,
         String code,
         boolean test,
-        int from,
+        String from,
         long number,
         double value,
         @Json(name = "used_at") LocalDateTime usedAt
