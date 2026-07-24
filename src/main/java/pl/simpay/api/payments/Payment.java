@@ -67,7 +67,30 @@ public final class Payment {
     private static String segment(String value) { Objects.requireNonNull(value); if (value.contains("/") || value.contains("?") || value.contains("#")) throw new IllegalArgumentException("invalid path identifier"); return value; }
     private static void put(Map<String,String> map, String key, String value) { if (value != null) map.put(key,value); }
     private static String enumJson(Enum<?> value) { if (value == null) return null; try { var field=value.getDeclaringClass().getField(value.name()); var json=field.getAnnotation(com.squareup.moshi.Json.class); return json == null ? value.name() : json.name(); } catch (NoSuchFieldException e) { throw new IllegalStateException(e); } }
-    private static void flatten(Object value, List<String> output) { if (value instanceof Map<?,?> map) map.values().forEach(v -> flatten(v,output)); else if (value instanceof Iterable<?> list) list.forEach(v -> flatten(v,output)); else if (value != null) output.add(String.valueOf(value)); }
+    private static void flatten(Object value, List<String> output) {
+        if (value instanceof Map<?,?> map) map.values().forEach(v -> flatten(v, output));
+        else if (value instanceof Iterable<?> list) list.forEach(v -> flatten(v, output));
+        else output.add(signatureValue(value));
+    }
+
+    private static String signatureValue(Object value) {
+        if (value == null || Boolean.FALSE.equals(value)) return "";
+        if (Boolean.TRUE.equals(value)) return "1";
+        if (value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long) return value.toString();
+        if (value instanceof Number number) return phpFloat(number.doubleValue());
+        return String.valueOf(value);
+    }
+
+    private static String phpFloat(double value) {
+        var text = Double.toString(value);
+        var exponent = text.indexOf('E');
+        if (exponent >= 0) {
+            var exponentValue = text.substring(exponent + 1);
+            if (!exponentValue.startsWith("-") && !exponentValue.startsWith("+")) exponentValue = "+" + exponentValue;
+            return text.substring(0, exponent) + "E" + exponentValue;
+        }
+        return text.endsWith(".0") ? text.substring(0, text.length() - 2) : text;
+    }
     @SuppressWarnings("unchecked") private static <T> T cast(Object value) { return (T)value; }
     private static <T> T data(Object value) { return Payment.<Response<T>>cast(value).data(); }
 }

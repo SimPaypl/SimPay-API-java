@@ -17,6 +17,7 @@ import pl.simpay.api.payments.Sms;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -35,8 +36,13 @@ class PaymentTest {
         json("{\"success\":true,\"data\":{\"redirectUrl\":\"https://pay\",\"transactionId\":\"tx\"}}");
         assertEquals("tx", payment.generateTransaction(new PaymentModels.GenerateTransactionRequest(new BigDecimal("10.20"))).transactionId());
         var r=request(); assertEquals("POST",r.getMethod()); assertEquals("/payment/svc/transactions",r.getPath()); assertEquals("{\"amount\":10.20,\"currency\":\"PLN\"}",r.getBody().readUtf8());
-        json("{\"success\":true,\"data\":{\"id\":\"tx\",\"status\":\"transaction_paid\",\"amount\":{\"value\":10.20,\"currency\":\"PLN\"},\"payer_transaction_id\":\"payer\"}}");
-        assertEquals(PaymentModels.TransactionStatus.PAID,payment.transactionInfo("tx").status()); assertEquals("GET",request().getMethod());
+        json("{\"success\":true,\"data\":{\"id\":\"tx\",\"status\":\"transaction_paid\",\"amount\":{\"value\":10.20,\"currency\":\"PLN\"},\"customer\":{\"country\":\"PL\"},\"payer_transaction_id\":\"payer\"}}");
+        var transaction = payment.transactionInfo("tx");
+        assertEquals(PaymentModels.TransactionStatus.PAID, transaction.status());
+        assertEquals("PL", transaction.customer().country());
+        var transactionRequest = request();
+        assertEquals("GET", transactionRequest.getMethod());
+        assertEquals("/payment/svc/transactions/tx", transactionRequest.getPath());
     }
     @Test void channelsAndCurrencies() throws Exception {
         json("{\"success\":true,\"data\":[{\"id\":\"blik\",\"name\":\"BLIK\",\"type\":\"blik\",\"img\":\"x\",\"currencies\":[\"PLN\"],\"amount\":{\"min\":1,\"max\":100}}]}");
@@ -44,11 +50,38 @@ class PaymentTest {
         json("{\"success\":true,\"data\":[{\"iso\":\"PLN\",\"pln_rate\":\"1.0\",\"updated_at\":\"2026-01-01T00:00:00Z\"}]}");
         assertEquals("PLN",payment.currencies().get(0).iso()); assertEquals("/payment/svc/currencies",request().getPath());
     }
+
+    @Test void generateSerializesEveryLaravelPaymentOption() throws Exception {
+        var customer = new PaymentModels.Customer("Jan", "jan@example.com", "127.0.0.1", "PL");
+        var address = new PaymentModels.Address("Jan", "Kowalski", "Testowa", "1", "2", "Warszawa", "mazowieckie", "00-001", "PL", "Firma");
+        var antiFraud = new PaymentModels.AntiFraud("agent", "steam", "player", "uuid", "system");
+        var cart = List.of(new PaymentModels.CartItem("Produkt", 2, new BigDecimal("5.00"), "Producent", "Kategoria", "SKU"));
+        var requestBody = new PaymentModels.GenerateTransactionRequest(
+                new BigDecimal("10.00"), "EUR", "Opis", "order-1", customer, antiFraud,
+                address, address, cart, new PaymentModels.Returns("https://ok", "https://fail"),
+                "blik", List.of("blik", "card"), new PaymentModels.ChannelTypes(), "https://shop"
+        );
+        json("{\"success\":true,\"data\":{\"redirectUrl\":\"https://pay\",\"transactionId\":\"tx\"}}");
+
+        payment.generateTransaction(requestBody);
+
+        var recorded = request();
+        assertEquals("POST", recorded.getMethod());
+        assertEquals("/payment/svc/transactions", recorded.getPath());
+        var body = recorded.getBody().readUtf8();
+        for (var expected : List.of(
+                "\"amount\":10.00", "\"currency\":\"EUR\"", "\"description\":\"Opis\"",
+                "\"control\":\"order-1\"", "\"countryCode\":\"PL\"", "\"antifraud\"",
+                "\"useragent\":\"agent\"", "\"steamid\":\"steam\"", "\"billing\"",
+                "\"shipping\"", "\"cart\"", "\"returns\"", "\"directChannel\":\"blik\"",
+                "\"channels\":[\"blik\",\"card\"]", "\"channelTypes\"", "\"referer\":\"https://shop\""
+        )) assertTrue(body.contains(expected), expected);
+    }
     @Test void blikAndAliasNoContent() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(204)); assertTrue(payment.initiateBlikLevel0("tx","123456"));
         var r=request(); assertEquals("POST",r.getMethod()); assertEquals("/payment/svc/blik/level0/tx",r.getPath()); assertEquals("{\"ticket\":{\"T6\":\"123456\"}}",r.getBody().readUtf8());
         server.enqueue(new MockResponse().setResponseCode(204)); assertTrue(payment.unregisterBlikAlias(new PaymentModels.UnregisterAliasRequest(null,"uuid",null,"done")));
-        r=request(); assertEquals("DELETE",r.getMethod()); assertEquals("{\"uuid\":\"uuid\",\"reason\":\"done\"}",r.getBody().readUtf8());
+        r=request(); assertEquals("DELETE",r.getMethod()); assertEquals("/payment/svc/blik/aliases", r.getPath()); assertEquals("{\"uuid\":\"uuid\",\"reason\":\"done\"}",r.getBody().readUtf8());
     }
     @Test void subscriptionOperationsAndQueries() throws Exception {
         json("{\"data\":[],\"pagination\":{\"total\":0,\"count\":0,\"per_page\":20,\"current_page\":1,\"total_pages\":0,\"links\":{}}}");
@@ -56,9 +89,26 @@ class PaymentTest {
         assertEquals("/payment/svc/subscriptions?page=1&perPage=20&filter%5Buuid%5D=u&filter%5Bstatus%5D=subscription_active&filter%5Bmode%5D=BLIK&sort=-created_at",request().getPath());
         var options=new PaymentModels.BlikSubscriptionOptions(PaymentModels.BlikModel.A, LocalDate.parse("2027-01-01"),"monthly",BigDecimal.TEN,LocalDate.parse("2026-01-01"),BigDecimal.valueOf(100),null);
         var create=new PaymentModels.CreateSubscriptionRequest("tx",new PaymentModels.BlikTicket("123456"),new PaymentModels.BlikAlias("v",null,null),options,PaymentModels.descriptions("hello"),null);
-        json("{\"success\":true,\"data\":{\"subscriptionId\":\"sub\",\"aliasId\":\"alias\"}}"); assertEquals("sub",payment.createBlikSubscription(create).subscriptionId()); assertEquals("/payment/svc/blik/subscriptions",request().getPath());
-        json("{\"success\":true,\"data\":{\"needsUserConfirmation\":true}}"); assertTrue(payment.blikAutoPayment("sub",new PaymentModels.AutoPaymentRequest("tx",null,1,null)).needsUserConfirmation()); assertEquals("/payment/svc/blik/subscriptions/sub/autopayment",request().getPath());
-        json("{\"data\":[],\"pagination\":{\"total\":0,\"count\":0,\"per_page\":20,\"current_page\":1,\"total_pages\":0,\"links\":{}}}"); payment.blikAliases(new PaymentModels.AliasQuery()); assertEquals("/payment/svc/blik/aliases?page=1&perPage=20",request().getPath());
+        json("{\"success\":true,\"data\":{\"subscriptionId\":\"sub\",\"aliasId\":\"alias\"}}");
+        assertEquals("sub",payment.createBlikSubscription(create).subscriptionId());
+        var createRequest = request();
+        assertEquals("POST", createRequest.getMethod());
+        assertEquals("/payment/svc/blik/subscriptions", createRequest.getPath());
+        var createBody = createRequest.getBody().readUtf8();
+        assertTrue(createBody.contains("\"transactionId\":\"tx\""));
+        assertTrue(createBody.contains("\"ticket\":{\"T6\":\"123456\"}"));
+        assertTrue(createBody.contains("\"model\":\"A\""));
+
+        json("{\"success\":true,\"data\":{\"needsUserConfirmation\":true}}");
+        assertTrue(payment.blikAutoPayment("sub",new PaymentModels.AutoPaymentRequest("tx",null,1,null)).needsUserConfirmation());
+        var autoPaymentRequest = request();
+        assertEquals("POST", autoPaymentRequest.getMethod());
+        assertEquals("/payment/svc/blik/subscriptions/sub/autopayment", autoPaymentRequest.getPath());
+        assertEquals("{\"transactionId\":\"tx\",\"attempt\":1}", autoPaymentRequest.getBody().readUtf8());
+
+        json("{\"data\":[],\"pagination\":{\"total\":0,\"count\":0,\"per_page\":20,\"current_page\":1,\"total_pages\":0,\"links\":{}}}");
+        payment.blikAliases(new PaymentModels.AliasQuery(2, 30, PaymentModels.AliasStatus.ACTIVE, PaymentModels.AliasType.PAYID, "uuid", "value", "-created_at"));
+        assertEquals("/payment/svc/blik/aliases?page=2&perPage=30&filter%5Bstatus%5D=alias_active&filter%5Btype%5D=PAYID&filter%5Buuid%5D=uuid&filter%5Bvalue%5D=value&sort=-created_at",request().getPath());
     }
     @Test void semanticErrors() {
         server.enqueue(new MockResponse().setResponseCode(400).setBody("{\"errorCode\":\"BLIK_CODE_EXPIRED\",\"message\":\"expired\"}")); assertThrows(InvalidBlikTicketException.class,()->payment.initiateBlikLevel0("tx","1"));
@@ -66,12 +116,54 @@ class PaymentTest {
         server.enqueue(new MockResponse().setResponseCode(404).setBody("{}")); assertThrows(SimPayNotFoundException.class,payment::channels);
         server.enqueue(new MockResponse().setResponseCode(422).setBody("{\"errors\":{\"amount\":[\"required\"]}}")); var e=assertThrows(SimPayValidationException.class,payment::channels); assertEquals("required",e.getErrors().get("amount").get(0));
     }
+
+    @Test void deserializesNonEmptySubscriptionAndAliasResponses() throws Exception {
+        json("{\"data\":[{\"id\":\"sub\",\"status\":\"subscription_active\",\"mode\":\"BLIK\"," +
+                "\"blik\":{\"model\":\"A\",\"alias\":null},\"frequency\":\"monthly\"," +
+                "\"initiation_date\":\"2026-01-01\",\"total_amount_limit\":100.00," +
+                "\"total_transactions_limit\":10,\"cancelled\":null," +
+                "\"created_at\":\"2026-01-01T00:00:00Z\",\"updated_at\":\"2026-01-02T00:00:00Z\"}]," +
+                "\"pagination\":{\"total\":1,\"count\":1,\"per_page\":20,\"current_page\":1,\"total_pages\":1,\"links\":{}}}");
+        var subscription = payment.subscriptions(new PaymentModels.SubscriptionQuery()).data().get(0);
+        assertEquals(PaymentModels.SubscriptionStatus.ACTIVE, subscription.status());
+        assertEquals(PaymentModels.BlikModel.A, subscription.blik().model());
+        assertEquals(new BigDecimal("100.00"), subscription.totalAmountLimit());
+        request();
+
+        json("{\"data\":[{\"id\":\"alias\",\"type\":\"PAYID\",\"value\":\"value\",\"label\":\"Telefon\"," +
+                "\"blik_key\":\"key\",\"status\":\"alias_active\",\"expires_at\":null," +
+                "\"created_at\":\"2026-01-01T00:00:00Z\",\"updated_at\":\"2026-01-02T00:00:00Z\",\"subscription\":null}]," +
+                "\"pagination\":{\"total\":1,\"count\":1,\"per_page\":20,\"current_page\":1,\"total_pages\":1,\"links\":{}}}");
+        var alias = payment.blikAliases(new PaymentModels.AliasQuery()).data().get(0);
+        assertEquals(PaymentModels.AliasType.PAYID, alias.type());
+        assertEquals(PaymentModels.AliasStatus.ACTIVE, alias.status());
+        request();
+    }
     @Test void validationUnicodeAndSignatureVector() {
         assertThrows(IllegalArgumentException.class,()->new PaymentModels.SubscriptionQuery(0,20,null,null,null,null));
         assertThrows(IllegalArgumentException.class,()->new PaymentModels.BlikSubscriptionOptions(PaymentModels.BlikModel.A,null,null,null,null,null,null));
         var text="😀".repeat(80); var lines=PaymentModels.descriptions(text); assertEquals(35,lines.get("line1").codePointCount(0,lines.get("line1").length())); assertEquals(10,lines.get("line3").codePointCount(0,lines.get("line3").length()));
         var amount=new LinkedHashMap<String,Object>(); amount.put("value","10.00"); amount.put("currency","PLN");
         var payload=new LinkedHashMap<String,Object>(); payload.put("id","tx"); payload.put("amount",amount); payload.put("signature","138feceb0cc93786ec0b9b521b87aaa7fb0565f93ddf8115b75c6de92da8a427");
+        assertTrue(payment.ipnSignatureValid(payload));
+    }
+
+    @Test void signatureMatchesPhpScalarRulesForBooleansNullsAndDecimals() {
+        var payload = new LinkedHashMap<String,Object>();
+        payload.put("id", "tx");
+        payload.put("flags", java.util.Arrays.asList(true, false, null));
+        payload.put("amount", new BigDecimal("10.00"));
+        payload.put("signature", "343ab2fe4090ef9d219c6da2e1524fcb46b10a971c0956680c60a397bd4480e4");
+
+        assertTrue(payment.ipnSignatureValid(payload));
+    }
+
+    @Test void signatureMatchesPhpScientificNumberFormatting() {
+        var payload = new LinkedHashMap<String,Object>();
+        payload.put("id", "tx");
+        payload.put("numbers", List.of(1.0E-7, 1.0E+20));
+        payload.put("signature", "db756e4f534e0c4891a2be8a92ac76cbf5db4a993e42c36a6cf210e9e67d70d1");
+
         assertTrue(payment.ipnSignatureValid(payload));
     }
 
@@ -90,6 +182,18 @@ class PaymentTest {
 
         assertTrue(new DirectBilling(RestService.bearer("token", server.url("/"), new OkHttpClient.Builder()))
                 .checkSignature("secret", notification));
+    }
+
+    @Test void directBillingSignatureHandlesMissingOptionalNotificationFields() {
+        var notification = "{" +
+                "\"id\":\"tx-2\",\"serviceId\":\"svc\",\"status\":\"transaction_db_payed\"," +
+                "\"values\":{\"net\":10.00,\"gross\":12.30,\"partner\":2.30}," +
+                "\"returns\":{\"complete\":null,\"failure\":null},\"control\":null,\"number_from\":null," +
+                "\"provider\":7,\"signature\":\"c9ccd95ac1e4fdaa6fb26c78abd7d56069fea9035ebd4732aca9fa38ca4c5455\"}";
+        var directBilling = new DirectBilling(RestService.bearer("token", server.url("/"), new OkHttpClient.Builder()));
+
+        assertTrue(directBilling.checkSignature("secret", notification));
+        assertFalse(directBilling.checkSignature("secret", "not-json"));
     }
 
     @Test void supportsCurrentDirectBillingDetailsAndSmsWithoutNumber() throws Exception {

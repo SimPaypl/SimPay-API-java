@@ -75,6 +75,19 @@ class SmsXmlTest {
         assertEquals("Unsupported SMS number: 0000", exception.getMessage());
     }
 
+    @Test
+    void returnsValueForSupportedSmsNumber() {
+        assertEquals(1.0, smsXml.getSmsValue("7255"));
+    }
+
+    @Test
+    void generatesNormalizedXmlWithTextInsideSmsTextElement() {
+        assertEquals(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><sms-response><sms-text>Załółć</sms-text></sms-response>",
+                smsXml.generateXml("Załółć")
+        );
+    }
+
     private Map<String, Object> validParameters() {
         return new HashMap<>(Map.of(
                 "send_number", "7055",

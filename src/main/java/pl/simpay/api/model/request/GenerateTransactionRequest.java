@@ -7,6 +7,7 @@ import pl.simpay.api.util.Sha256;
 
 import java.util.List;
 import com.squareup.moshi.Json;
+import java.util.Objects;
 
 @Builder
 @ToString
@@ -25,12 +26,26 @@ public class GenerateTransactionRequest {
     private String signature;
 
     public void sign(String key) {
-        var s = amount + "|" + String.join("|", List.of(amountType, description, control, returns.success(), returns.failure(), phoneNumber, key));
+        Objects.requireNonNull(key, "key");
+        var s = amount + "|" + String.join("|", List.of(
+                value(amountType),
+                value(description),
+                value(control),
+                returns == null ? "" : value(returns.success()),
+                returns == null ? "" : value(returns.failure()),
+                value(phoneNumber),
+                key
+        ));
         this.signature = Sha256.hash(s);
     }
 
     public void signWithAmountAndControl(String key) {
-        var s = amount + "|" + String.join("|", List.of(control, key));
+        Objects.requireNonNull(key, "key");
+        var s = amount + "|" + String.join("|", List.of(value(control), key));
         this.signature = Sha256.hash(s);
+    }
+
+    private static String value(String value) {
+        return value == null ? "" : value;
     }
 }

@@ -40,9 +40,10 @@ public final class PaymentModels {
         public GenerateTransactionRequest(BigDecimal amount) { this(amount, "PLN", null, null, null, null, null, null, null, null, null, null, null, null); }
     }
     public record TransactionGenerated(String redirectUrl, String transactionId) {}
+    public record TransactionCustomer(String name, String email, String ip, String country) {}
     public record Amount(BigDecimal value, String currency, BigDecimal commission, @Json(name="commission_currency") String commissionCurrency, OriginalAmount original) {}
     public record OriginalAmount(BigDecimal value, String currency, @Json(name="pln_rate") String plnRate) {}
-    public record TransactionInfo(String id, TransactionStatus status, Amount amount, String channel, String control, String description, @Json(name="redirect") Returns redirects, Customer customer, Address billing, Address shipping, List<CartItem> cart, Map<String,Object> additional, @Json(name="paid_at") OffsetDateTime paidAt, @Json(name="expires_at") OffsetDateTime expiresAt, @Json(name="created_at") OffsetDateTime createdAt, @Json(name="updated_at") OffsetDateTime updatedAt, @Json(name="payer_transaction_id") String payerTransactionId) {}
+    public record TransactionInfo(String id, TransactionStatus status, Amount amount, String channel, String control, String description, @Json(name="redirect") Returns redirects, TransactionCustomer customer, Address billing, Address shipping, List<CartItem> cart, Map<String,Object> additional, @Json(name="paid_at") OffsetDateTime paidAt, @Json(name="expires_at") OffsetDateTime expiresAt, @Json(name="created_at") OffsetDateTime createdAt, @Json(name="updated_at") OffsetDateTime updatedAt, @Json(name="payer_transaction_id") String payerTransactionId) {}
     public record ChannelAmount(BigDecimal min, BigDecimal max) {}
     public record Channel(String id, String name, String type, String img, BigDecimal commission, List<String> currencies, ChannelAmount amount) {}
     public record Currency(String iso, @Json(name="pln_rate") String plnRate, @Json(name="nbp_table") String nbpTable, String prefix, String suffix, @Json(name="updated_at") OffsetDateTime updatedAt) {}

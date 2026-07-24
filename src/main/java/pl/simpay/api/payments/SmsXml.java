@@ -80,7 +80,7 @@ public class SmsXml {
     }
 
     public String generateXml(String text) {
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?><sms-response>" + Normalizer.normalize(text, Normalizer.Form.NFKD) + "<sms-text></sms-text></sms-response>";
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?><sms-response><sms-text>" + Normalizer.normalize(text, Normalizer.Form.NFKD) + "</sms-text></sms-response>";
     }
 
 }
