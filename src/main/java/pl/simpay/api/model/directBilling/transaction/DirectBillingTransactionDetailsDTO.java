@@ -19,18 +19,4 @@ public record DirectBillingTransactionDetailsDTO(
         @Json(name = "created_at") LocalDateTime createdAt,
         @Json(name = "updated_at") LocalDateTime updatedAt
 ) {
-    /** Compatibility constructor for the response shape exposed before version 3. */
-    public DirectBillingTransactionDetailsDTO(
-            String id,
-            TransactionStatus status,
-            String phoneNumber,
-            double value,
-            double netValue,
-            Operator operator,
-            Notification notification,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt
-    ) {
-        this(id, status, phoneNumber, null, value, netValue, 0, null, operator, notification, null, createdAt, updatedAt);
-    }
 }

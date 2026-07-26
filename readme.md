@@ -13,6 +13,18 @@ Dzięki naszemu klientowi *zyskasz narzędzia i biblioteki* do integracji API sy
 
 Masz problem z integracją lub chcesz dowiedzieć się więcej? Napisz na kontakt@simpay.pl
 
+## Maven
+
+Dodaj bibliotekę z Maven Central:
+
+```xml
+<dependency>
+    <groupId>pl.simpay</groupId>
+    <artifactId>simpay-java-api</artifactId>
+    <version>3.0.0</version>
+</dependency>
+```
+
 ---
 
 # SimPay-API-java
@@ -29,3 +41,15 @@ With our client, you will get *the tools and libraries* to integrate the SimPay 
 * *Safety and continuous technical support* – we guarantee proper security for all payments. And in case of problems with the integration or operation of SimPay systems, we immediately respond with support.
 
 Do you have an issue with integration or want to learn more? Write to kontakt@simpay.pl
+
+## Maven
+
+Add the library from Maven Central:
+
+```xml
+<dependency>
+    <groupId>pl.simpay</groupId>
+    <artifactId>simpay-java-api</artifactId>
+    <version>3.0.0</version>
+</dependency>
+```
