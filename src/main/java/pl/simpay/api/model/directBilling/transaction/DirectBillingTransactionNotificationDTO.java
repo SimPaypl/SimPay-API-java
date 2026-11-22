@@ -4,13 +4,13 @@ import com.squareup.moshi.Json;
 
 public record DirectBillingTransactionNotificationDTO(
         String id,
-        String serviceId,
+        @Json(name = "service_id") String serviceId,
         TransactionStatus status,
         Values values,
         DirectBillingNotificationReturns returns,
         String control,
         @Json(name = "number_from") String numberFrom,
-        int provider,
+        Integer provider,
         String signature
 ) {
 }

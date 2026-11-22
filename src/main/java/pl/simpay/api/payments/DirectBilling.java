@@ -24,6 +24,7 @@ import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @SuppressWarnings("unchecked")
@@ -113,7 +114,7 @@ public class DirectBilling {
                 notification.numberFrom(),
                 notification.provider(),
                 key
-        ).stream().map(DirectBilling::signatureValue).toList();
+        ).stream().filter(Objects::nonNull).map(DirectBilling::signatureValue).toList();
         return Sha256.hash(String.join(pipe, fields));
     }
 

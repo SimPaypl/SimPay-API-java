@@ -170,7 +170,7 @@ class PaymentTest {
     @Test void validatesCurrentDirectBillingSignatureWithExactDecimalText() {
         var notification = "{" +
                 "\"id\":\"tx-1\"," +
-                "\"serviceId\":\"d151e4f9\"," +
+                "\"service_id\":\"d151e4f9\"," +
                 "\"status\":\"transaction_db_payed\"," +
                 "\"values\":{\"net\":10.00,\"gross\":12.30,\"partner\":2.30}," +
                 "\"returns\":{\"complete\":\"https://ok\",\"failure\":\"https://fail\"}," +
@@ -186,14 +186,29 @@ class PaymentTest {
 
     @Test void directBillingSignatureHandlesMissingOptionalNotificationFields() {
         var notification = "{" +
-                "\"id\":\"tx-2\",\"serviceId\":\"svc\",\"status\":\"transaction_db_payed\"," +
+                "\"id\":\"tx-2\",\"service_id\":\"svc\",\"status\":\"transaction_db_payed\"," +
                 "\"values\":{\"net\":10.00,\"gross\":12.30,\"partner\":2.30}," +
                 "\"returns\":{\"complete\":null,\"failure\":null},\"control\":null,\"number_from\":null," +
-                "\"provider\":7,\"signature\":\"c9ccd95ac1e4fdaa6fb26c78abd7d56069fea9035ebd4732aca9fa38ca4c5455\"}";
+                "\"provider\":7,\"signature\":\"6841545edb0c2496b4250663d1c81986494f8ff283c5a508c67b9c843c97d490\"}";
         var directBilling = new DirectBilling(RestService.bearer("token", server.url("/"), new OkHttpClient.Builder()));
 
         assertTrue(directBilling.checkSignature("secret", notification));
         assertFalse(directBilling.checkSignature("secret", "not-json"));
+    }
+
+    /**
+     * Notifications as SimPay's IPN sender builds them: snake_case service_id, optional fields
+     * omitted instead of null, amounts as PHP prints floats. Signed with the sender's algorithm.
+     */
+    @Test void directBillingSignatureMatchesNotificationsSentBySimPay() {
+        var directBilling = new DirectBilling(RestService.bearer("token", server.url("/"), new OkHttpClient.Builder()));
+        var full = "{\"id\":\"a1b2c3\",\"service_id\":\"f1e2d3c4\",\"status\":\"transaction_db_payed\",\"values\":{\"net\":10,\"gross\":12.3,\"partner\":7.45},\"returns\":{\"complete\":\"https:\\/\\/shop.example\\/ok\",\"failure\":\"https:\\/\\/shop.example\\/fail\"},\"control\":\"order-15\",\"number_from\":\"48123456789\",\"provider\":1,\"signature\":\"a9623d6d0a3186417f36e365ddfe8346c92025009b8cf8b1a7e3f912ec3b43ad\"}";
+        var minimal = "{\"id\":\"d4e5f6\",\"service_id\":42,\"status\":\"transaction_db_confirmed\",\"values\":{\"net\":0.5,\"gross\":0.62,\"partner\":0.25},\"signature\":\"38ccd5c05e5a8bb5cb9d27e57a531fffbdca16500ea68d64df74ed08c4b63c29\"}";
+
+        assertTrue(directBilling.checkSignature("secret-key", full));
+        assertTrue(directBilling.checkSignature("secret-key", minimal));
+        assertFalse(directBilling.checkSignature("other-key", full));
+        assertFalse(directBilling.checkSignature("secret-key", full.replace("\"gross\":12.3", "\"gross\":123")));
     }
 
     @Test void supportsCurrentDirectBillingDetailsAndSmsWithoutNumber() throws Exception {
