@@ -8,7 +8,7 @@ public record DirectBillingTransactionsDTO(
         String id,
         TransactionStatus status,
         double value,
-        @Json(name = "value_netto") double netValue,
+        @Json(name = "value_net") double netValue,
         Operator operator,
         @Json(name = "created_at") LocalDateTime createdAt,
         @Json(name = "updated_at") LocalDateTime updatedAt

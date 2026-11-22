@@ -211,6 +211,22 @@ class PaymentTest {
         assertFalse(directBilling.checkSignature("secret-key", full.replace("\"gross\":12.3", "\"gross\":123")));
     }
 
+    /** Body shaped like TransactionsResource in simpay-api. */
+    @Test void directBillingTransactionListReadsNetValue() throws Exception {
+        var rest = RestService.bearer("token", server.url("/"), new OkHttpClient.Builder());
+        json("{\"success\":true,\"data\":[{" +
+                "\"id\":\"tx-1\",\"status\":\"transaction_db_confirmed\",\"value\":42.86,\"value_net\":30," +
+                "\"value_created\":0,\"value_created_type\":null,\"operator\":\"orange\"," +
+                "\"created_at\":\"2021-11-17T02:53:21+01:00\",\"updated_at\":\"2021-11-17T02:53:21+01:00\"}]," +
+                "\"pagination\":{\"total\":1,\"count\":1,\"per_page\":15,\"current_page\":1,\"total_pages\":1," +
+                "\"links\":{\"next_page\":null,\"prev_page\":null}}}");
+
+        var transactions = new DirectBilling(rest).getTransactions("d151e4f9").data();
+
+        assertEquals(1, transactions.size());
+        assertEquals(30.0, transactions.iterator().next().netValue());
+    }
+
     @Test void supportsCurrentDirectBillingDetailsAndSmsWithoutNumber() throws Exception {
         var rest = RestService.bearer("token", server.url("/"), new OkHttpClient.Builder());
         json("{\"success\":true,\"data\":{" +
