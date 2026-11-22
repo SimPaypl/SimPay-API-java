@@ -44,6 +44,13 @@ class PaymentTest {
         assertEquals("GET", transactionRequest.getMethod());
         assertEquals("/payment/svc/transactions/tx", transactionRequest.getPath());
     }
+
+    @Test void transactionInfoReadsFraudStatuses() throws Exception {
+        json("{\"success\":true,\"data\":{\"id\":\"tx\",\"status\":\"transaction_fraud\"}}");
+        assertEquals(PaymentModels.TransactionStatus.FRAUD, payment.transactionInfo("tx").status());
+        json("{\"success\":true,\"data\":{\"id\":\"tx\",\"status\":\"transaction_fraud_possibility\"}}");
+        assertEquals(PaymentModels.TransactionStatus.FRAUD_POSSIBILITY, payment.transactionInfo("tx").status());
+    }
     @Test void channelsAndCurrencies() throws Exception {
         json("{\"success\":true,\"data\":[{\"id\":\"blik\",\"name\":\"BLIK\",\"type\":\"blik\",\"img\":\"x\",\"currencies\":[\"PLN\"],\"amount\":{\"min\":1,\"max\":100}}]}");
         assertEquals("blik",payment.channels().get(0).id()); assertEquals("/payment/svc/channels",request().getPath());
