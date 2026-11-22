@@ -13,7 +13,7 @@ public record DirectBillingServiceDetailsDTO(
         ServiceStatus status,
         Api api,
         Providers providers,
-        CommissionsPercents commissionsPercents,
+        @Json(name = "commissions") CommissionsPercents commissionsPercents,
         OperatorMaxValues maxValues,
         @Json(name = "created_at") LocalDateTime createdAt
 ) {

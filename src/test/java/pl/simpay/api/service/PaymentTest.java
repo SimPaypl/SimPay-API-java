@@ -227,6 +227,26 @@ class PaymentTest {
         assertEquals(30.0, transactions.iterator().next().netValue());
     }
 
+    /** Body shaped like DirectBilling ServiceResource in simpay-api. */
+    @Test void directBillingServiceDetailsReadsCommissions() throws Exception {
+        var rest = RestService.bearer("token", server.url("/"), new OkHttpClient.Builder());
+        json("{\"success\":true,\"data\":{\"id\":\"d151e4f9\",\"name\":\"Test\",\"suffix\":\"TEST\"," +
+                "\"status\":\"service_active\",\"api\":{\"complete\":null,\"failure\":null}," +
+                "\"providers\":{\"t-mobile\":true,\"orange\":true,\"play\":false,\"plus\":true}," +
+                "\"commissions\":{\"t-mobile\":{\"commission_0\":\"0.60\",\"commission_9\":\"0.65\",\"commission_25\":\"0.70\"}," +
+                "\"orange\":{\"commission_0\":\"0.55\",\"commission_9\":\"0.60\",\"commission_25\":\"0.66\"}," +
+                "\"play\":{\"commission_0\":null,\"commission_9\":null,\"commission_25\":null}," +
+                "\"plus\":{\"commission_0\":\"0.50\",\"commission_9\":\"0.55\",\"commission_25\":\"0.60\"}}," +
+                "\"maxValues\":{\"t-mobile\":\"25.00\",\"orange\":\"25.00\",\"play\":null,\"plus\":\"25.00\"}," +
+                "\"created_at\":\"2021-11-17T02:53:21+01:00\"}}");
+
+        var service = new DirectBilling(rest).getServiceDetails("d151e4f9").data();
+
+        assertEquals("0.65", service.commissionsPercents().tMobile().commission9());
+        assertEquals("0.66", service.commissionsPercents().orange().commission25());
+        assertEquals("25.00", service.maxValues().plus());
+    }
+
     @Test void supportsCurrentDirectBillingDetailsAndSmsWithoutNumber() throws Exception {
         var rest = RestService.bearer("token", server.url("/"), new OkHttpClient.Builder());
         json("{\"success\":true,\"data\":{" +
