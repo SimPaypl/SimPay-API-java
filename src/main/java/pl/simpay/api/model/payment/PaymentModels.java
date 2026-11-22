@@ -19,7 +19,7 @@ public final class PaymentModels {
     public enum SubscriptionMode { @Json(name="BLIK") BLIK, @Json(name="CARD") CARD }
     public enum SubscriptionStatus { @Json(name="subscription_pending") PENDING, @Json(name="subscription_active") ACTIVE, @Json(name="subscription_cancelled") CANCELLED, @Json(name="subscription_expired") EXPIRED, @Json(name="subscription_finished") FINISHED, @Json(name="subscription_fraudulent") FRAUDULENT }
     public enum SubscriptionCancelledBy { @Json(name="system") SYSTEM, @Json(name="antifraud") ANTIFRAUD, @Json(name="merchant") MERCHANT, @Json(name="payer") PAYER, @Json(name="blik") BLIK }
-    public enum TransactionStatus { @Json(name="transaction_new") NEW, @Json(name="transaction_generated") GENERATED, @Json(name="transaction_confirmed") CONFIRMED, @Json(name="transaction_paid") PAID, @Json(name="transaction_failure") FAILURE, @Json(name="transaction_expired") EXPIRED, @Json(name="transaction_refunded") REFUNDED }
+    public enum TransactionStatus { @Json(name="transaction_new") NEW, @Json(name="transaction_generated") GENERATED, @Json(name="transaction_confirmed") CONFIRMED, @Json(name="transaction_paid") PAID, @Json(name="transaction_failure") FAILURE, @Json(name="transaction_expired") EXPIRED, @Json(name="transaction_refunded") REFUNDED, @Json(name="transaction_fraud") FRAUD, @Json(name="transaction_fraud_possibility") FRAUD_POSSIBILITY }
 
     public record Customer(String name, String email, String ip, String countryCode) {}
     public record Address(String name, String surname, String street, String building, String flat, String city, String region, String postalCode, String country, String company) {}
