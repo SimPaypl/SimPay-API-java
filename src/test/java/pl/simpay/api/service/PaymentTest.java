@@ -247,6 +247,26 @@ class PaymentTest {
         assertEquals("25.00", service.maxValues().plus());
     }
 
+    /** Body shaped like DirectBilling ServicesResource in simpay-api, one service per status from the panel. */
+    @Test void directBillingServiceListReadsEveryStatus() throws Exception {
+        var rest = RestService.bearer("token", server.url("/"), new OkHttpClient.Builder());
+        var statuses = java.util.List.of("service_active", "service_db_new", "service_db_blocked", "service_db_deleted",
+                "service_db_second_verify", "service_db_rejected", "service_verify", "service_db_ongoing_registration");
+        var items = new StringBuilder();
+        for (int i = 0; i < statuses.size(); i++) {
+            if (i > 0) items.append(',');
+            items.append("{\"id\":\"svc-").append(i).append("\",\"name\":\"Test\",\"suffix\":\"TEST\",\"status\":\"")
+                    .append(statuses.get(i)).append("\",\"created_at\":\"2021-11-17T02:53:21+01:00\"}");
+        }
+        json("{\"success\":true,\"data\":[" + items + "],\"pagination\":{\"total\":8,\"count\":8,\"per_page\":15," +
+                "\"current_page\":1,\"total_pages\":1,\"links\":{\"next_page\":null,\"prev_page\":null}}}");
+
+        var services = new DirectBilling(rest).getServiceList().data();
+
+        assertEquals(java.util.Set.copyOf(statuses),
+                services.stream().map(service -> service.status().getStatusName()).collect(java.util.stream.Collectors.toSet()));
+    }
+
     @Test void supportsCurrentDirectBillingDetailsAndSmsWithoutNumber() throws Exception {
         var rest = RestService.bearer("token", server.url("/"), new OkHttpClient.Builder());
         json("{\"success\":true,\"data\":{" +

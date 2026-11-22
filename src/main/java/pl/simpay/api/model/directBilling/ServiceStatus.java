@@ -8,7 +8,11 @@ import java.util.Arrays;
 public enum ServiceStatus {
     NEW("service_db_new"),
     ACTIVE("service_active"),
+    BLOCKED("service_db_blocked"),
+    DELETED("service_db_deleted"),
+    SECOND_VERIFY("service_db_second_verify"),
     REJECTED("service_db_rejected"),
+    VERIFY("service_verify"),
     ONGOING_REGISTRATION("service_db_ongoing_registration");
 
     @Getter
