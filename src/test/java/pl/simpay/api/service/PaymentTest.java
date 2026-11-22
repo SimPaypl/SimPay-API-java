@@ -211,7 +211,7 @@ class PaymentTest {
         assertFalse(directBilling.checkSignature("secret-key", full.replace("\"gross\":12.3", "\"gross\":123")));
     }
 
-    /** Body shaped like TransactionsResource in simpay-api. */
+    /** Body shaped like the DirectBilling transaction list response. */
     @Test void directBillingTransactionListReadsNetValue() throws Exception {
         var rest = RestService.bearer("token", server.url("/"), new OkHttpClient.Builder());
         json("{\"success\":true,\"data\":[{" +
@@ -227,7 +227,7 @@ class PaymentTest {
         assertEquals(30.0, transactions.iterator().next().netValue());
     }
 
-    /** Body shaped like DirectBilling ServiceResource in simpay-api. */
+    /** Body shaped like the DirectBilling service details response. */
     @Test void directBillingServiceDetailsReadsCommissions() throws Exception {
         var rest = RestService.bearer("token", server.url("/"), new OkHttpClient.Builder());
         json("{\"success\":true,\"data\":{\"id\":\"d151e4f9\",\"name\":\"Test\",\"suffix\":\"TEST\"," +
@@ -247,7 +247,7 @@ class PaymentTest {
         assertEquals("25.00", service.maxValues().plus());
     }
 
-    /** Body shaped like DirectBilling ServicesResource in simpay-api, one service per status from the panel. */
+    /** Body shaped like the DirectBilling service list response, one service per status. */
     @Test void directBillingServiceListReadsEveryStatus() throws Exception {
         var rest = RestService.bearer("token", server.url("/"), new OkHttpClient.Builder());
         var statuses = java.util.List.of("service_active", "service_db_new", "service_db_blocked", "service_db_deleted",
